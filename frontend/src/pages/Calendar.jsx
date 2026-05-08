@@ -85,10 +85,11 @@ export default function CalendarPage() {
     return {
       style: {
         backgroundColor,
-        borderRadius: '4px',
+        borderRadius: '6px',
         color: 'white',
         border: 'none',
-        fontSize: '12px'
+        fontSize: '11px',
+        padding: '2px 6px'
       }
     };
   }, []);
@@ -98,40 +99,64 @@ export default function CalendarPage() {
   }, []);
 
   return (
-    <div>
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Team Calendar</h1>
-        
-        <div className="flex flex-wrap items-center gap-4">
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-600">Filter:</span>
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900">Team Calendar</h1>
+          <p className="text-slate-500 mt-1">View your team's work status and schedules</p>
+        </div>
+      </div>
+
+      {/* Filters Card */}
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          {/* Legend */}
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-emerald-500"></div>
+              <span className="text-sm text-slate-600">Office</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-blue-500"></div>
+              <span className="text-sm text-slate-600">Work from Home</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-red-400"></div>
+              <span className="text-sm text-slate-600">Leave</span>
+            </div>
+          </div>
+
+          {/* Controls */}
+          <div className="flex items-center gap-3">
             <select
               value={selectedUser}
               onChange={(e) => setSelectedUser(e.target.value)}
-              className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
             >
-              <option value="all">All Employees</option>
+              <option value="all">All Members</option>
               {allUsers.map(u => (
                 <option key={u.id} value={u.id}>{u.name}</option>
               ))}
             </select>
-          </div>
 
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-600">View:</span>
-            <div className="flex rounded-lg border border-gray-300 overflow-hidden">
+            <div className="flex rounded-xl border border-slate-200 overflow-hidden">
               <button
                 onClick={() => setView('month')}
-                className={`px-3 py-1.5 text-sm font-medium transition-colors ${
-                  view === 'month' ? 'bg-blue-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
+                className={`px-4 py-2 text-sm font-medium transition-all ${
+                  view === 'month' 
+                    ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white' 
+                    : 'bg-white text-slate-600 hover:bg-slate-50'
                 }`}
               >
                 Month
               </button>
               <button
                 onClick={() => setView('week')}
-                className={`px-3 py-1.5 text-sm font-medium transition-colors border-l border-gray-300 ${
-                  view === 'week' ? 'bg-blue-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
+                className={`px-4 py-2 text-sm font-medium transition-all border-l border-slate-200 ${
+                  view === 'week' 
+                    ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white' 
+                    : 'bg-white text-slate-600 hover:bg-slate-50'
                 }`}
               >
                 Week
@@ -141,27 +166,19 @@ export default function CalendarPage() {
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-4 mb-4">
-        <div className="flex items-center gap-2">
-          <div className="w-4 h-4 rounded bg-emerald-500"></div>
-          <span className="text-sm text-gray-600">Office</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-4 h-4 rounded bg-blue-500"></div>
-          <span className="text-sm text-gray-600">Work from Home</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-4 h-4 rounded bg-red-400"></div>
-          <span className="text-sm text-gray-600">Leave</span>
-        </div>
-      </div>
-
+      {/* Calendar Card */}
       {loading ? (
-        <div className="flex items-center justify-center h-96 bg-white rounded-lg shadow">
-          <div className="text-gray-500">Loading calendar...</div>
+        <div className="flex items-center justify-center h-96 bg-white rounded-2xl shadow-sm border border-slate-200">
+          <div className="flex flex-col items-center gap-3">
+            <svg className="animate-spin h-8 w-8 text-blue-600" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+            </svg>
+            <span className="text-slate-500">Loading calendar...</span>
+          </div>
         </div>
       ) : (
-        <div className="bg-white rounded-lg shadow p-4" style={{ height: 700 }}>
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6" style={{ height: 650 }}>
           <BigCalendar
             localizer={localizer}
             events={filteredEvents}

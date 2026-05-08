@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, parseISO, isToday, isPast, isFuture } from 'date-fns';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, parseISO, isToday } from 'date-fns';
 import { workStatus, schedules } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 
@@ -118,7 +118,16 @@ export default function MyStatus() {
       case 'office': return 'bg-emerald-500';
       case 'home': return 'bg-blue-500';
       case 'leave': return 'bg-red-400';
-      default: return 'bg-gray-200';
+      default: return 'bg-slate-200';
+    }
+  };
+
+  const getStatusBg = (status) => {
+    switch (status?.status) {
+      case 'office': return 'bg-emerald-50 border-emerald-200';
+      case 'home': return 'bg-blue-50 border-blue-200';
+      case 'leave': return 'bg-red-50 border-red-200';
+      default: return 'bg-white border-slate-200';
     }
   };
 
@@ -126,29 +135,33 @@ export default function MyStatus() {
   const paddingDays = Array(firstDayOfMonth).fill(null);
 
   return (
-    <div>
-      <h1 className="text-2xl font-bold text-gray-900 mb-6">My Status</h1>
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold text-slate-900">My Status</h1>
+        <p className="text-slate-500 mt-1">Set your daily work status</p>
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Calendar */}
         <div className="lg:col-span-2">
-          <div className="bg-white rounded-lg shadow p-6">
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
             <div className="flex items-center justify-between mb-6">
               <button
                 onClick={() => navigateMonth(-1)}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                className="p-2 hover:bg-slate-100 rounded-xl transition-colors"
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-5 h-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                 </svg>
               </button>
-              <h2 className="text-lg font-semibold text-gray-900">
+              <h2 className="text-lg font-semibold text-slate-900">
                 {format(currentMonth, 'MMMM yyyy')}
               </h2>
               <button
                 onClick={() => navigateMonth(1)}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                className="p-2 hover:bg-slate-100 rounded-xl transition-colors"
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-5 h-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
               </button>
@@ -156,15 +169,18 @@ export default function MyStatus() {
 
             <div className="grid grid-cols-7 gap-1 mb-2">
               {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-                <div key={day} className="text-center text-sm font-medium text-gray-500 py-2">
+                <div key={day} className="text-center text-xs font-semibold text-slate-400 uppercase tracking-wider py-2">
                   {day}
                 </div>
               ))}
             </div>
 
             {loading ? (
-              <div className="flex items-center justify-center h-64 text-gray-500">
-                Loading...
+              <div className="flex items-center justify-center h-64">
+                <svg className="animate-spin h-8 w-8 text-blue-600" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                </svg>
               </div>
             ) : (
               <div className="grid grid-cols-7 gap-1">
@@ -180,23 +196,20 @@ export default function MyStatus() {
                     <button
                       key={day.toISOString()}
                       onClick={() => handleDayClick(day)}
-                      className={`aspect-square p-1 rounded-lg border-2 transition-all ${
+                      className={`aspect-square p-1.5 rounded-xl border-2 transition-all ${getStatusBg(status)} ${
                         isSelected
-                          ? 'border-blue-500 ring-2 ring-blue-200'
-                          : 'border-transparent hover:border-gray-300'
-                      } ${isToday(day) ? 'bg-yellow-50' : ''}`}
+                          ? 'ring-2 ring-blue-500 ring-offset-2 border-blue-500'
+                          : 'hover:border-slate-300'
+                      } ${isToday(day) ? 'ring-2 ring-amber-400 ring-offset-1' : ''}`}
                     >
-                      <div className="h-full flex flex-col">
-                        <span className={`text-sm ${isToday(day) ? 'font-bold text-blue-600' : 'text-gray-700'}`}>
+                      <div className="h-full flex flex-col items-center justify-center gap-1">
+                        <span className={`text-sm font-medium ${
+                          isToday(day) ? 'text-amber-600' : status ? 'text-slate-700' : 'text-slate-500'
+                        }`}>
                           {format(day, 'd')}
                         </span>
-                        <div className="flex-1 flex items-center justify-center">
-                          <div className={`w-3 h-3 rounded-full ${getStatusColor(status)}`} />
-                        </div>
-                        {schedule && (
-                          <div className="text-xs text-gray-500 truncate">
-                            {schedule.shift.name.split(' ')[0]}
-                          </div>
+                        {status && (
+                          <div className={`w-2 h-2 rounded-full ${getStatusColor(status)}`} />
                         )}
                       </div>
                     </button>
@@ -205,97 +218,94 @@ export default function MyStatus() {
               </div>
             )}
 
-            <div className="flex flex-wrap gap-4 mt-6 pt-4 border-t border-gray-200">
+            {/* Legend */}
+            <div className="flex flex-wrap gap-4 mt-6 pt-4 border-t border-slate-100">
               <div className="flex items-center gap-2">
                 <div className="w-3 h-3 rounded-full bg-emerald-500" />
-                <span className="text-sm text-gray-600">Office</span>
+                <span className="text-sm text-slate-600">Office</span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-3 h-3 rounded-full bg-blue-500" />
-                <span className="text-sm text-gray-600">WFH</span>
+                <span className="text-sm text-slate-600">WFH</span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-3 h-3 rounded-full bg-red-400" />
-                <span className="text-sm text-gray-600">Leave</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-gray-200" />
-                <span className="text-sm text-gray-600">Not set</span>
+                <span className="text-sm text-slate-600">Leave</span>
               </div>
             </div>
           </div>
         </div>
 
+        {/* Status Form */}
         <div>
           {selectedDate ? (
-            <div className="bg-white rounded-lg shadow p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                {format(selectedDate, 'EEEE, MMMM d, yyyy')}
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 sticky top-24">
+              <h3 className="text-lg font-semibold text-slate-900 mb-1">
+                {format(selectedDate, 'EEEE')}
               </h3>
+              <p className="text-slate-500 text-sm mb-6">
+                {format(selectedDate, 'MMMM d, yyyy')}
+              </p>
 
               {getScheduleForDate(selectedDate) && (
-                <div className="mb-4 p-3 bg-gray-50 rounded-lg">
-                  <div className="text-sm text-gray-500">Assigned Shift</div>
-                  <div className="font-medium">
+                <div className="mb-6 p-4 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl border border-indigo-100">
+                  <div className="text-xs font-medium text-indigo-600 uppercase tracking-wider mb-1">Assigned Shift</div>
+                  <div className="font-semibold text-slate-900">
                     {getScheduleForDate(selectedDate).shift.name}
                   </div>
-                  <div className="text-sm text-gray-600">
+                  <div className="text-sm text-slate-600">
                     {getScheduleForDate(selectedDate).shift.startTime} - {getScheduleForDate(selectedDate).shift.endTime}
                   </div>
                 </div>
               )}
 
-              <form onSubmit={handleSubmit} className="space-y-4">
+              <form onSubmit={handleSubmit} className="space-y-5">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-3">Status</label>
                   <div className="space-y-2">
-                    <label className="flex items-center gap-3 p-3 rounded-lg border border-gray-200 cursor-pointer hover:bg-gray-50">
-                      <input
-                        type="radio"
-                        name="status"
-                        value="office"
-                        checked={formData.status === 'office'}
-                        onChange={(e) => setFormData({ ...formData, status: e.target.value, leaveType: '' })}
-                        className="w-4 h-4 text-emerald-600"
-                      />
-                      <div className="w-3 h-3 rounded-full bg-emerald-500" />
-                      <span>Office</span>
-                    </label>
-                    <label className="flex items-center gap-3 p-3 rounded-lg border border-gray-200 cursor-pointer hover:bg-gray-50">
-                      <input
-                        type="radio"
-                        name="status"
-                        value="home"
-                        checked={formData.status === 'home'}
-                        onChange={(e) => setFormData({ ...formData, status: e.target.value, leaveType: '' })}
-                        className="w-4 h-4 text-blue-600"
-                      />
-                      <div className="w-3 h-3 rounded-full bg-blue-500" />
-                      <span>Work from Home</span>
-                    </label>
-                    <label className="flex items-center gap-3 p-3 rounded-lg border border-gray-200 cursor-pointer hover:bg-gray-50">
-                      <input
-                        type="radio"
-                        name="status"
-                        value="leave"
-                        checked={formData.status === 'leave'}
-                        onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                        className="w-4 h-4 text-red-600"
-                      />
-                      <div className="w-3 h-3 rounded-full bg-red-400" />
-                      <span>Leave</span>
-                    </label>
+                    {[
+                      { value: 'office', label: 'Office', color: 'emerald', icon: '🏢' },
+                      { value: 'home', label: 'Work from Home', color: 'blue', icon: '🏠' },
+                      { value: 'leave', label: 'Leave', color: 'red', icon: '🌴' }
+                    ].map(option => (
+                      <label
+                        key={option.value}
+                        className={`flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all ${
+                          formData.status === option.value
+                            ? `border-${option.color}-500 bg-${option.color}-50`
+                            : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name="status"
+                          value={option.value}
+                          checked={formData.status === option.value}
+                          onChange={(e) => setFormData({ ...formData, status: e.target.value, leaveType: '' })}
+                          className="sr-only"
+                        />
+                        <span className="text-xl">{option.icon}</span>
+                        <span className={`font-medium ${formData.status === option.value ? 'text-slate-900' : 'text-slate-600'}`}>
+                          {option.label}
+                        </span>
+                        {formData.status === option.value && (
+                          <svg className={`w-5 h-5 ml-auto text-${option.color}-500`} fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                          </svg>
+                        )}
+                      </label>
+                    ))}
                   </div>
                 </div>
 
                 {formData.status === 'leave' && (
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Leave Type</label>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">Leave Type</label>
                     <select
                       value={formData.leaveType}
                       onChange={(e) => setFormData({ ...formData, leaveType: e.target.value })}
                       required
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
                     >
                       <option value="">Select type</option>
                       <option value="full">Full Day</option>
@@ -306,12 +316,12 @@ export default function MyStatus() {
                 )}
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Notes (optional)</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">Notes (optional)</label>
                   <textarea
                     value={formData.notes}
                     onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                     rows={2}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all resize-none"
                     placeholder="Add any notes..."
                   />
                 </div>
@@ -320,16 +330,16 @@ export default function MyStatus() {
                   <button
                     type="submit"
                     disabled={saving}
-                    className="flex-1 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50"
+                    className="flex-1 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all font-semibold disabled:opacity-50 shadow-lg shadow-blue-500/25"
                   >
-                    {saving ? 'Saving...' : 'Save'}
+                    {saving ? 'Saving...' : 'Save Status'}
                   </button>
                   {getStatusForDate(selectedDate) && (
                     <button
                       type="button"
                       onClick={handleClear}
                       disabled={saving}
-                      className="py-2 px-4 text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition-colors font-medium disabled:opacity-50"
+                      className="py-3 px-4 text-red-600 bg-red-50 rounded-xl hover:bg-red-100 transition-colors font-semibold disabled:opacity-50"
                     >
                       Clear
                     </button>
@@ -338,8 +348,14 @@ export default function MyStatus() {
               </form>
             </div>
           ) : (
-            <div className="bg-white rounded-lg shadow p-6 text-center text-gray-500">
-              <p>Click on a day to set your status</p>
+            <div className="bg-gradient-to-br from-slate-50 to-slate-100 rounded-2xl border-2 border-dashed border-slate-200 p-8 text-center">
+              <div className="w-12 h-12 mx-auto mb-4 rounded-xl bg-slate-200 flex items-center justify-center">
+                <svg className="w-6 h-6 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+              </div>
+              <p className="text-slate-500 font-medium">Select a date</p>
+              <p className="text-slate-400 text-sm mt-1">Click on any day to set your status</p>
             </div>
           )}
         </div>
