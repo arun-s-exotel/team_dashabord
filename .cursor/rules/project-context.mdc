@@ -1,0 +1,55 @@
+---
+description: Team Scheduler Dashboard project context and deployment info
+alwaysApply: true
+---
+
+# Team Scheduler Dashboard
+
+Full-stack app for managing team schedules, shifts, and work locations with role-based access.
+
+## Tech Stack
+- **Frontend**: React 18, Vite, TailwindCSS, React Big Calendar, Recharts (port 5173)
+- **Backend**: Node.js, Express, Prisma ORM (port 3001)
+- **Database**: PostgreSQL
+
+## Data Models
+- **User**: id, email, passwordHash, name, role (admin/employee), isActive
+- **Shift**: id, name, startTime, endTime, isActive
+- **Schedule**: Links users to shifts on dates (unique per user/date)
+- **WorkStatus**: Daily status (office/home/leave) with leave types (full/first_half/second_half)
+
+## Key Features
+- JWT auth with 22-user limit
+- Admin vs Employee role-based access
+- Calendar/list views, shift management, bulk scheduling
+- Work status tracking, reports with CSV export
+
+## GitHub Repository
+https://github.com/arun-s-exotel/team_dashabord
+
+## Railway Deployment
+
+### Backend Service
+- Root Directory: `backend`
+- Start: `npx prisma migrate deploy && npm start`
+- Health check: `/health`
+- Env vars: `DATABASE_URL`, `JWT_SECRET`
+
+### Frontend Service
+- Root Directory: `frontend`
+- Start: `npm run preview -- --host 0.0.0.0 --port $PORT`
+- Env vars: `VITE_API_URL` = `https://<backend-url>/api`
+
+### Post-Deploy
+Run `npm run db:seed` in backend for initial admin user (admin@example.com / admin123)
+
+## Project Structure
+```
+backend/
+  prisma/schema.prisma, seed.js
+  src/controllers/, middleware/, routes/, index.js
+  railway.toml
+frontend/
+  src/pages/, components/, context/, api/
+  railway.toml
+```
