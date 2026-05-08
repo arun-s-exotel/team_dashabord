@@ -58,6 +58,7 @@ export const schedules = {
 export const workStatus = {
   getAll: (params) => client.get('/work-status', { params }),
   update: (data) => client.put('/work-status', data),
+  bulkUpdate: (data) => client.put('/work-status/bulk', data),
   delete: (date) => client.delete(`/work-status/${date}`)
 };
 

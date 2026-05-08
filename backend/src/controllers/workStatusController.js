@@ -107,4 +107,63 @@ const deleteWorkStatus = async (req, res) => {
   }
 };
 
-module.exports = { getWorkStatuses, updateWorkStatus, deleteWorkStatus };
+const bulkUpdateWorkStatus = async (req, res) => {
+  try {
+    const { dates, status, leaveType, notes } = req.body;
+    const userId = req.user.id;
+
+    if (!dates || !Array.isArray(dates) || dates.length === 0) {
+      return res.status(400).json({ error: 'Dates array is required' });
+    }
+
+    if (!status) {
+      return res.status(400).json({ error: 'Status is required' });
+    }
+
+    if (!['office', 'home', 'leave'].includes(status)) {
+      return res.status(400).json({ error: 'Invalid status. Must be office, home, or leave' });
+    }
+
+    if (status === 'leave' && !leaveType) {
+      return res.status(400).json({ error: 'Leave type is required when status is leave' });
+    }
+
+    const results = await prisma.$transaction(
+      dates.map(date => 
+        prisma.workStatus.upsert({
+          where: {
+            userId_date: {
+              userId,
+              date: new Date(date)
+            }
+          },
+          update: {
+            status,
+            leaveType: status === 'leave' ? leaveType : null,
+            notes: notes || null
+          },
+          create: {
+            userId,
+            date: new Date(date),
+            status,
+            leaveType: status === 'leave' ? leaveType : null,
+            notes: notes || null
+          },
+          include: {
+            user: { select: { id: true, name: true, email: true } }
+          }
+        })
+      )
+    );
+
+    res.json({ 
+      message: `Successfully updated ${results.length} status(es)`,
+      statuses: results 
+    });
+  } catch (error) {
+    console.error('Bulk update work status error:', error);
+    res.status(500).json({ error: 'Failed to bulk update work statuses' });
+  }
+};
+
+module.exports = { getWorkStatuses, updateWorkStatus, deleteWorkStatus, bulkUpdateWorkStatus };

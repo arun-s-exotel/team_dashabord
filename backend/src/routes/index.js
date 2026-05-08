@@ -34,6 +34,7 @@ router.delete('/schedules/:id', authenticate, requireAdmin, scheduleController.d
 // Work status routes
 router.get('/work-status', authenticate, workStatusController.getWorkStatuses);
 router.put('/work-status', authenticate, workStatusController.updateWorkStatus);
+router.put('/work-status/bulk', authenticate, workStatusController.bulkUpdateWorkStatus);
 router.delete('/work-status/:date', authenticate, workStatusController.deleteWorkStatus);
 
 // Report routes
