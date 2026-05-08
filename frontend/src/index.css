@@ -1,0 +1,45 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import 'react-big-calendar/lib/css/react-big-calendar.css';
+
+body {
+  @apply bg-gray-50 text-gray-900;
+}
+
+.rbc-calendar {
+  @apply bg-white rounded-lg shadow;
+}
+
+.rbc-header {
+  @apply py-2 font-semibold text-gray-700 border-gray-200;
+}
+
+.rbc-today {
+  @apply bg-blue-50;
+}
+
+.rbc-event {
+  @apply rounded px-1 text-xs;
+}
+
+.rbc-event.event-office {
+  @apply bg-emerald-500;
+}
+
+.rbc-event.event-home {
+  @apply bg-blue-500;
+}
+
+.rbc-event.event-leave {
+  @apply bg-red-400;
+}
+
+.rbc-toolbar button {
+  @apply px-3 py-1 rounded border border-gray-300 hover:bg-gray-100;
+}
+
+.rbc-toolbar button.rbc-active {
+  @apply bg-blue-600 text-white border-blue-600 hover:bg-blue-700;
+}
