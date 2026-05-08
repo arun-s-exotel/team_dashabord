@@ -36,8 +36,9 @@ const getWorkStatuses = async (req, res) => {
 
 const updateWorkStatus = async (req, res) => {
   try {
-    const { date, status, leaveType, notes } = req.body;
-    const userId = req.user.id;
+    const { date, status, leaveType, notes, userId: targetUserId } = req.body;
+    const isAdmin = req.user.role === 'admin';
+    const userId = (isAdmin && targetUserId) ? targetUserId : req.user.id;
 
     if (!date || !status) {
       return res.status(400).json({ error: 'Date and status are required' });
@@ -109,8 +110,9 @@ const deleteWorkStatus = async (req, res) => {
 
 const bulkUpdateWorkStatus = async (req, res) => {
   try {
-    const { dates, status, leaveType, notes } = req.body;
-    const userId = req.user.id;
+    const { dates, status, leaveType, notes, userId: targetUserId } = req.body;
+    const isAdmin = req.user.role === 'admin';
+    const userId = (isAdmin && targetUserId) ? targetUserId : req.user.id;
 
     if (!dates || !Array.isArray(dates) || dates.length === 0) {
       return res.status(400).json({ error: 'Dates array is required' });

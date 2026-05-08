@@ -2,7 +2,9 @@ const bcrypt = require('bcryptjs');
 const { PrismaClient } = require('@prisma/client');
 
 const prisma = new PrismaClient();
-const MAX_USERS = 22;
+
+const PRIMARY_ADMIN_EMAIL = 'arun.s@exotel.com';
+const MAX_USERS = 21;
 
 const getUsers = async (req, res) => {
   try {
@@ -59,12 +61,28 @@ const updateUser = async (req, res) => {
   try {
     const { id } = req.params;
     const { name, role, isActive } = req.body;
+    const requesterEmail = req.user.email;
+    const isPrimaryAdmin = requesterEmail === PRIMARY_ADMIN_EMAIL;
+
+    const targetUser = await prisma.user.findUnique({ where: { id } });
+    if (!targetUser) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    if (role && role !== targetUser.role) {
+      if (!isPrimaryAdmin) {
+        return res.status(403).json({ error: 'Only the primary admin can change user roles' });
+      }
+      if (targetUser.email === PRIMARY_ADMIN_EMAIL && role !== 'admin') {
+        return res.status(403).json({ error: 'Cannot demote the primary admin' });
+      }
+    }
 
     const user = await prisma.user.update({
       where: { id },
       data: {
         ...(name && { name }),
-        ...(role && { role }),
+        ...(role && isPrimaryAdmin && { role }),
         ...(typeof isActive === 'boolean' && { isActive })
       },
       select: { id: true, email: true, name: true, role: true, isActive: true }

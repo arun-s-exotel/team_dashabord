@@ -3,7 +3,33 @@ const jwt = require('jsonwebtoken');
 const { PrismaClient } = require('@prisma/client');
 
 const prisma = new PrismaClient();
-const MAX_USERS = 22;
+
+const ALLOWED_EMAILS = [
+  'ashwin.ts@exotel.com',
+  'vemana.kiran@exotel.com',
+  'ruthwik.d@exotel.com',
+  'sneha.sb@exotel.com',
+  'akhil.a@exotel.com',
+  'shreya.singh@exotel.com',
+  'ashwini.v@exotel.com',
+  'pratnadeep.sinha@exotel.com',
+  'harsh.agrawal@exotel.com',
+  'mangala.rajeshwari@exotel.com',
+  'naveenkumar.k@exotel.com',
+  'rajnish.singh@exotel.com',
+  'diya.sarkar@exotel.com',
+  'bindu.bhavani@exotel.com',
+  'arun.naik@exotel.com',
+  'rohit.anand@exotel.com',
+  'ananya.ba@exotel.com',
+  'turaka.aruna@exotel.com',
+  'heena.k@exotel.com',
+  'manikandan.palanisamy@exotel.com',
+  'arun.s@exotel.com'
+];
+
+const PRIMARY_ADMIN_EMAIL = 'arun.s@exotel.com';
+const MAX_USERS = ALLOWED_EMAILS.length;
 
 const register = async (req, res) => {
   try {
@@ -13,25 +39,31 @@ const register = async (req, res) => {
       return res.status(400).json({ error: 'Email, password, and name are required' });
     }
 
-    const userCount = await prisma.user.count();
-    if (userCount >= MAX_USERS) {
-      return res.status(400).json({ error: 'Maximum user limit reached (22 users)' });
+    const normalizedEmail = email.toLowerCase().trim();
+
+    if (!ALLOWED_EMAILS.includes(normalizedEmail)) {
+      return res.status(403).json({ error: 'This email is not authorized to register. Only approved Exotel team members can sign up.' });
     }
 
-    const existingUser = await prisma.user.findUnique({ where: { email } });
+    const userCount = await prisma.user.count();
+    if (userCount >= MAX_USERS) {
+      return res.status(400).json({ error: `Maximum user limit reached (${MAX_USERS} users)` });
+    }
+
+    const existingUser = await prisma.user.findUnique({ where: { email: normalizedEmail } });
     if (existingUser) {
       return res.status(400).json({ error: 'Email already registered' });
     }
 
     const passwordHash = await bcrypt.hash(password, 10);
-    const isFirstUser = userCount === 0;
+    const isPrimaryAdmin = normalizedEmail === PRIMARY_ADMIN_EMAIL;
 
     const user = await prisma.user.create({
       data: {
-        email,
+        email: normalizedEmail,
         passwordHash,
         name,
-        role: isFirstUser ? 'admin' : 'employee'
+        role: isPrimaryAdmin ? 'admin' : 'employee'
       },
       select: { id: true, email: true, name: true, role: true }
     });

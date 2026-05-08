@@ -1,17 +1,22 @@
 import { useState, useEffect } from 'react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, parseISO, isToday, addDays, startOfWeek, endOfWeek, isWeekend } from 'date-fns';
-import { workStatus, schedules } from '../api/client';
+import { workStatus, schedules, users } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 
 export default function MyStatus() {
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [statuses, setStatuses] = useState([]);
   const [mySchedules, setMySchedules] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [allUsers, setAllUsers] = useState([]);
   
-  // New form state
+  // Target user for admin impersonation
+  const [targetUserId, setTargetUserId] = useState(user.id);
+  const targetUser = allUsers.find(u => u.id === targetUserId) || user;
+  
+  // Form state
   const [selectedStatus, setSelectedStatus] = useState('office');
   const [dateMode, setDateMode] = useState('today');
   const [customStartDate, setCustomStartDate] = useState(format(new Date(), 'yyyy-MM-dd'));
@@ -19,22 +24,31 @@ export default function MyStatus() {
   const [leaveType, setLeaveType] = useState('full');
   const [notes, setNotes] = useState('');
 
+  useEffect(() => {
+    if (isAdmin) {
+      users.getAll().then(res => {
+        setAllUsers(res.data);
+      }).catch(console.error);
+    }
+  }, [isAdmin]);
+
   const loadData = async () => {
     setLoading(true);
     try {
       const start = startOfMonth(currentMonth);
       const end = endOfMonth(currentMonth);
+      const userId = isAdmin ? targetUserId : user.id;
       
       const [statusRes, scheduleRes] = await Promise.all([
         workStatus.getAll({
           startDate: format(start, 'yyyy-MM-dd'),
           endDate: format(end, 'yyyy-MM-dd'),
-          userId: user.id
+          userId
         }),
         schedules.getAll({
           startDate: format(start, 'yyyy-MM-dd'),
           endDate: format(end, 'yyyy-MM-dd'),
-          userId: user.id
+          userId
         })
       ]);
 
@@ -49,7 +63,7 @@ export default function MyStatus() {
 
   useEffect(() => {
     loadData();
-  }, [currentMonth, user.id]);
+  }, [currentMonth, targetUserId]);
 
   const days = eachDayOfInterval({
     start: startOfMonth(currentMonth),
@@ -106,12 +120,18 @@ export default function MyStatus() {
 
     setSaving(true);
     try {
-      await workStatus.bulkUpdate({
+      const payload = {
         dates,
         status: selectedStatus,
         leaveType: selectedStatus === 'leave' ? leaveType : null,
         notes: notes || null
-      });
+      };
+      
+      if (isAdmin && targetUserId !== user.id) {
+        payload.userId = targetUserId;
+      }
+      
+      await workStatus.bulkUpdate(payload);
       
       setNotes('');
       loadData();
@@ -146,22 +166,67 @@ export default function MyStatus() {
 
   const firstDayOfMonth = startOfMonth(currentMonth).getDay();
   const paddingDays = Array(firstDayOfMonth).fill(null);
+  const isManagingOther = isAdmin && targetUserId !== user.id;
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-slate-900">My Status</h1>
-        <p className="text-slate-500 mt-1">Set your daily work status</p>
+        <h1 className="text-2xl font-bold text-slate-900">
+          {isManagingOther ? 'Manage Status' : 'My Status'}
+        </h1>
+        <p className="text-slate-500 mt-1">
+          {isManagingOther 
+            ? `Setting status for ${targetUser.name}`
+            : 'Set your daily work status'
+          }
+        </p>
       </div>
+
+      {/* Admin: Employee Selector */}
+      {isAdmin && (
+        <div className="bg-gradient-to-r from-purple-50 to-indigo-50 rounded-2xl border border-purple-200 p-4">
+          <div className="flex items-center gap-4">
+            <div className="flex-shrink-0">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-indigo-500 flex items-center justify-center">
+                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+              </div>
+            </div>
+            <div className="flex-1">
+              <label className="block text-xs font-medium text-purple-600 uppercase tracking-wider mb-1">
+                Admin: Manage status for
+              </label>
+              <select
+                value={targetUserId}
+                onChange={(e) => setTargetUserId(e.target.value)}
+                className="w-full px-4 py-2.5 bg-white border border-purple-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition-all text-slate-900 font-medium"
+              >
+                <option value={user.id}>Myself ({user.name})</option>
+                {allUsers.filter(u => u.id !== user.id).map(u => (
+                  <option key={u.id} value={u.id}>{u.name}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Set Status Form */}
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
-        <h2 className="text-lg font-semibold text-slate-900 mb-6">Set Status</h2>
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-lg font-semibold text-slate-900">Set Status</h2>
+          {isManagingOther && (
+            <span className="px-3 py-1 bg-purple-100 text-purple-700 text-sm font-medium rounded-full">
+              For: {targetUser.name}
+            </span>
+          )}
+        </div>
         
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Status Selection */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-3">What's your status?</label>
+            <label className="block text-sm font-medium text-slate-700 mb-3">What's the status?</label>
             <div className="grid grid-cols-3 gap-3">
               {[
                 { value: 'office', label: 'Office', icon: '🏢', color: 'emerald' },
@@ -234,7 +299,6 @@ export default function MyStatus() {
                     type="date"
                     value={customStartDate}
                     onChange={(e) => setCustomStartDate(e.target.value)}
-                    min={format(new Date(), 'yyyy-MM-dd')}
                     className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
                   />
                 </div>
@@ -299,7 +363,11 @@ export default function MyStatus() {
           <button
             type="submit"
             disabled={saving || getDatesFromMode().length === 0}
-            className="w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all font-semibold disabled:opacity-50 shadow-lg shadow-blue-500/25"
+            className={`w-full py-3 text-white rounded-xl transition-all font-semibold disabled:opacity-50 shadow-lg ${
+              isManagingOther 
+                ? 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 shadow-purple-500/25'
+                : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-blue-500/25'
+            }`}
           >
             {saving ? (
               <span className="flex items-center justify-center gap-2">
@@ -310,7 +378,10 @@ export default function MyStatus() {
                 Saving...
               </span>
             ) : (
-              `Save Status${getDatesFromMode().length > 1 ? ` for ${getDatesFromMode().length} days` : ''}`
+              <>
+                {isManagingOther ? `Save for ${targetUser.name?.split(' ')[0]}` : 'Save Status'}
+                {getDatesFromMode().length > 1 ? ` (${getDatesFromMode().length} days)` : ''}
+              </>
             )}
           </button>
         </form>
@@ -319,7 +390,12 @@ export default function MyStatus() {
       {/* Calendar Overview */}
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-lg font-semibold text-slate-900">Status Overview</h2>
+          <div>
+            <h2 className="text-lg font-semibold text-slate-900">Status Overview</h2>
+            {isManagingOther && (
+              <p className="text-sm text-slate-500">Showing {targetUser.name}'s status</p>
+            )}
+          </div>
           <div className="flex items-center gap-2">
             <button
               onClick={() => navigateMonth(-1)}
