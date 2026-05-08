@@ -24,5 +24,5 @@ RUN cd frontend && npm run build
 # Expose port
 EXPOSE 3001
 
-# Start command - use db push for initial setup (no migrations yet)
-CMD ["sh", "-c", "cd backend && npx prisma db push && npm start"]
+# Start command - push schema and run with auto-seed
+CMD ["sh", "-c", "cd backend && npx prisma db push && node start.js"]
