@@ -6,10 +6,13 @@ async function seedIfNeeded() {
   const prisma = new PrismaClient();
   
   try {
-    const userCount = await prisma.user.count();
+    // Check if admin user exists
+    const adminUser = await prisma.user.findUnique({
+      where: { email: 'admin@example.com' }
+    });
     
-    if (userCount === 0) {
-      console.log('No users found, running seed...');
+    if (!adminUser) {
+      console.log('Admin user not found, running seed...');
       
       // Create default shifts
       const shifts = [
@@ -43,7 +46,7 @@ async function seedIfNeeded() {
       });
       console.log('Created default admin user (email: admin@example.com, password: admin123)');
     } else {
-      console.log(`Database already has ${userCount} user(s), skipping seed`);
+      console.log('Admin user already exists, skipping seed');
     }
   } catch (error) {
     console.error('Seed error:', error.message);
