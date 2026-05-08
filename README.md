@@ -72,32 +72,29 @@ After running the seed script, you can log in with:
 
 ## Deployment to Railway
 
-### 1. Create a Railway Project
+This project is configured for single-service deployment on Railway. The backend serves both the API and the frontend static files.
+
+### Quick Setup
 
 1. Go to [Railway](https://railway.app) and create a new project
-2. Add a PostgreSQL database service
-
-### 2. Deploy Backend
-
-1. Add a new service from your GitHub repo
-2. Set the root directory to `backend`
-3. Add environment variables:
-   - `DATABASE_URL`: (provided by Railway PostgreSQL)
-   - `JWT_SECRET`: (generate a secure random string)
-   - `PORT`: 3001
-
-4. After deploy, run migrations:
+2. Add a **PostgreSQL** database service
+3. Add a new service from your GitHub repo (`team_dashabord`)
+4. Set environment variables:
+   - `DATABASE_URL`: Copy from PostgreSQL service (use internal URL)
+   - `JWT_SECRET`: Generate a secure random string
+5. Deploy - Railway will automatically use `railway.json` config
+6. After first deploy, open Railway shell and run:
    ```bash
-   npx prisma migrate deploy
-   npm run db:seed
+   cd backend && npm run db:seed
    ```
 
-### 3. Deploy Frontend
+### How It Works
 
-1. Add another service from your GitHub repo
-2. Set the root directory to `frontend`
-3. Add environment variable:
-   - `VITE_API_URL`: Your backend URL (e.g., https://your-backend.railway.app/api)
+- `railway.json` configures build and start commands
+- Build: Installs backend deps, generates Prisma client, builds frontend
+- Start: Runs database migrations, starts Express server
+- Backend serves API at `/api/*` and frontend at `/*`
+- Health check endpoint: `/health`
 
 ## API Endpoints
 
@@ -125,26 +122,26 @@ After running the seed script, you can log in with:
 
 ```
 team-scheduler/
+├── railway.json              # Railway deployment config
 ├── backend/
 │   ├── prisma/
-│   │   ├── schema.prisma    # Database schema
-│   │   └── seed.js          # Seed data
+│   │   ├── schema.prisma     # Database schema
+│   │   └── seed.js           # Seed data
 │   ├── src/
-│   │   ├── controllers/     # Route handlers
-│   │   ├── middleware/      # Auth middleware
-│   │   ├── routes/          # API routes
-│   │   └── index.js         # Express app
-│   ├── Dockerfile
+│   │   ├── controllers/      # Route handlers
+│   │   ├── middleware/       # Auth middleware
+│   │   ├── routes/           # API routes
+│   │   └── index.js          # Express app (serves frontend)
+│   ├── Procfile              # Railway start command
 │   └── package.json
 ├── frontend/
 │   ├── src/
-│   │   ├── api/             # API client
-│   │   ├── components/      # Shared components
-│   │   ├── context/         # Auth context
-│   │   ├── pages/           # Page components
-│   │   ├── App.jsx          # Main app with routes
-│   │   └── main.jsx         # Entry point
-│   ├── Dockerfile
+│   │   ├── api/              # API client
+│   │   ├── components/       # Shared components
+│   │   ├── context/          # Auth context
+│   │   ├── pages/            # Page components
+│   │   ├── App.jsx           # Main app with routes
+│   │   └── main.jsx          # Entry point
 │   └── package.json
 └── README.md
 ```
