@@ -24,5 +24,5 @@ RUN cd frontend && npm run build
 # Expose port
 EXPOSE 3001
 
-# Start command
-CMD ["sh", "-c", "cd backend && npm run db:migrate:deploy && npm start"]
+# Start command - use db push for initial setup (no migrations yet)
+CMD ["sh", "-c", "cd backend && npx prisma db push && npm start"]
