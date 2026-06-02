@@ -60,6 +60,12 @@ Admins can update *another* user's work status by passing `userId` in the body o
 - `src/App.jsx` — all routing. `PrivateRoute` and `PrivateRoute adminOnly` wrap the protected routes; the admin-only pages are `/employees`, `/shifts`, `/assign`.
 - `src/pages/` — one component per route; no shared state beyond `AuthContext`. Pages call the API directly via `src/api/client.js`.
 
+### Data-safety guardrails (read before editing)
+- `Schedule.user` / `Schedule.shift` / `WorkStatus.user` are `onDelete: Restrict`. Hard-deleting a User or Shift that has dependent rows will fail at the DB level. **Don't change these to Cascade** without an audit — the whole point is to prevent a single bad DELETE from wiping months of schedules. User and Shift deletes go through soft-delete (`isActive = false`) instead.
+- Every destructive operation writes an `AuditLog` row via `backend/src/lib/audit.js`. When you add a new destructive endpoint, call `logAudit(req, { action, entityType, entityId, metadata })`. Audit failures are non-fatal (logged to stderr, the user op still succeeds).
+- `bulkAssignSchedules` is **upsert-in-transaction**, not delete+insert. There's a hard cap (`MAX_OPS = 1000`) on `users × days` per call to prevent runaway writes. If you need to lift it, also reconsider transaction size.
+- Schema deploy currently uses `prisma db push` (Dockerfile). `db push` refuses destructive changes by default — but it bypasses migration history, so there's no rollback. Switching to committed migrations + `migrate deploy` is a separate planned change; baselining the existing production DB requires `prisma migrate resolve --applied <name>` before the first `migrate deploy`.
+
 ### Conventions
 - Prisma uses camelCase model fields mapped to snake_case columns via `@map(...)`. Stick to camelCase in JS.
 - All `date` columns are `@db.Date` (no time). Controllers construct `new Date(dateString)` — be careful about timezone drift when adding date logic.

@@ -1,4 +1,5 @@
 const { PrismaClient } = require('@prisma/client');
+const { logAudit } = require('../lib/audit');
 
 const prisma = new PrismaClient();
 
@@ -49,6 +50,28 @@ const updateUser = async (req, res) => {
       select: { id: true, email: true, name: true, role: true, isActive: true }
     });
 
+    if (role && role !== targetUser.role && isPrimaryAdmin) {
+      await logAudit(req, {
+        action: 'change_user_role',
+        entityType: 'user',
+        entityId: id,
+        metadata: {
+          targetEmail: targetUser.email,
+          previousRole: targetUser.role,
+          newRole: role
+        }
+      });
+    }
+
+    if (typeof isActive === 'boolean' && isActive !== targetUser.isActive) {
+      await logAudit(req, {
+        action: isActive ? 'reactivate_user' : 'deactivate_user',
+        entityType: 'user',
+        entityId: id,
+        metadata: { targetEmail: targetUser.email }
+      });
+    }
+
     res.json(user);
   } catch (error) {
     console.error('Update user error:', error);
@@ -64,9 +87,25 @@ const deleteUser = async (req, res) => {
       return res.status(400).json({ error: 'Cannot delete yourself' });
     }
 
+    const targetUser = await prisma.user.findUnique({ where: { id } });
+    if (!targetUser) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    if (targetUser.email === PRIMARY_ADMIN_EMAIL) {
+      return res.status(403).json({ error: 'Cannot remove the primary admin' });
+    }
+
     await prisma.user.update({
       where: { id },
       data: { isActive: false }
+    });
+
+    await logAudit(req, {
+      action: 'deactivate_user',
+      entityType: 'user',
+      entityId: id,
+      metadata: { targetEmail: targetUser.email, targetName: targetUser.name }
     });
 
     res.json({ message: 'User deactivated successfully' });

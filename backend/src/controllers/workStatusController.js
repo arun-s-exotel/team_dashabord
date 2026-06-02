@@ -1,4 +1,5 @@
 const { PrismaClient } = require('@prisma/client');
+const { logAudit } = require('../lib/audit');
 
 const prisma = new PrismaClient();
 
@@ -92,13 +93,23 @@ const deleteWorkStatus = async (req, res) => {
     const { date } = req.params;
     const userId = req.user.id;
 
+    const existing = await prisma.workStatus.findUnique({
+      where: { userId_date: { userId, date: new Date(date) } }
+    });
+
+    if (!existing) {
+      return res.status(404).json({ error: 'Work status not found' });
+    }
+
     await prisma.workStatus.delete({
-      where: {
-        userId_date: {
-          userId,
-          date: new Date(date)
-        }
-      }
+      where: { userId_date: { userId, date: new Date(date) } }
+    });
+
+    await logAudit(req, {
+      action: 'delete_work_status',
+      entityType: 'work_status',
+      entityId: existing.id,
+      metadata: { userId, date, previousStatus: existing.status, previousLeaveType: existing.leaveType }
     });
 
     res.json({ message: 'Work status deleted successfully' });

@@ -56,8 +56,8 @@ model Schedule {
   shiftId   String   @map("shift_id")
   date      DateTime @db.Date
   createdAt DateTime @default(now()) @map("created_at")
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  shift     Shift    @relation(fields: [shiftId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Restrict)
+  shift     Shift    @relation(fields: [shiftId], references: [id], onDelete: Restrict)
 
   @@unique([userId, date])
   @@map("schedules")
@@ -81,8 +81,23 @@ model WorkStatus {
   leaveType LeaveType?     @map("leave_type")
   notes     String?
   updatedAt DateTime       @updatedAt @map("updated_at")
-  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User           @relation(fields: [userId], references: [id], onDelete: Restrict)
 
   @@unique([userId, date])
   @@map("work_status")
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  actorId    String?  @map("actor_id")
+  actorEmail String   @map("actor_email")
+  action     String
+  entityType String?  @map("entity_type")
+  entityId   String?  @map("entity_id")
+  metadata   Json?
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([createdAt])
+  @@index([action])
+  @@map("audit_logs")
 }

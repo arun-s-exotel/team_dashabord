@@ -1,4 +1,5 @@
 const { PrismaClient } = require('@prisma/client');
+const { logAudit } = require('../lib/audit');
 
 const prisma = new PrismaClient();
 
@@ -27,6 +28,13 @@ const createShift = async (req, res) => {
       data: { name, startTime, endTime }
     });
 
+    await logAudit(req, {
+      action: 'create_shift',
+      entityType: 'shift',
+      entityId: shift.id,
+      metadata: { name, startTime, endTime }
+    });
+
     res.status(201).json(shift);
   } catch (error) {
     console.error('Create shift error:', error);
@@ -39,6 +47,11 @@ const updateShift = async (req, res) => {
     const { id } = req.params;
     const { name, startTime, endTime, isActive } = req.body;
 
+    const previous = await prisma.shift.findUnique({ where: { id } });
+    if (!previous) {
+      return res.status(404).json({ error: 'Shift not found' });
+    }
+
     const shift = await prisma.shift.update({
       where: { id },
       data: {
@@ -46,6 +59,16 @@ const updateShift = async (req, res) => {
         ...(startTime && { startTime }),
         ...(endTime && { endTime }),
         ...(typeof isActive === 'boolean' && { isActive })
+      }
+    });
+
+    await logAudit(req, {
+      action: 'update_shift',
+      entityType: 'shift',
+      entityId: id,
+      metadata: {
+        previous: { name: previous.name, startTime: previous.startTime, endTime: previous.endTime, isActive: previous.isActive },
+        current: { name: shift.name, startTime: shift.startTime, endTime: shift.endTime, isActive: shift.isActive }
       }
     });
 
@@ -60,9 +83,21 @@ const deleteShift = async (req, res) => {
   try {
     const { id } = req.params;
 
+    const previous = await prisma.shift.findUnique({ where: { id } });
+    if (!previous) {
+      return res.status(404).json({ error: 'Shift not found' });
+    }
+
     await prisma.shift.update({
       where: { id },
       data: { isActive: false }
+    });
+
+    await logAudit(req, {
+      action: 'deactivate_shift',
+      entityType: 'shift',
+      entityId: id,
+      metadata: { name: previous.name, startTime: previous.startTime, endTime: previous.endTime }
     });
 
     res.json({ message: 'Shift deactivated successfully' });

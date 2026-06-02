@@ -1,4 +1,5 @@
 const { PrismaClient } = require('@prisma/client');
+const { logAudit } = require('../lib/audit');
 
 const prisma = new PrismaClient();
 
@@ -59,6 +60,13 @@ const addAllowedEmail = async (req, res) => {
       }
     });
 
+    await logAudit(req, {
+      action: 'add_allowed_email',
+      entityType: 'allowed_email',
+      entityId: entry.id,
+      metadata: { email: normalizedEmail, role: requestedRole }
+    });
+
     res.status(201).json(entry);
   } catch (error) {
     console.error('Add allowed email error:', error);
@@ -78,10 +86,24 @@ const updateAllowedEmail = async (req, res) => {
 
     const requestedRole = role === 'admin' ? 'admin' : 'employee';
 
+    const previous = await prisma.allowedEmail.findUnique({ where: { id } });
+    if (!previous) {
+      return res.status(404).json({ error: 'Allowed email not found' });
+    }
+
     const entry = await prisma.allowedEmail.update({
       where: { id },
       data: { role: requestedRole }
     });
+
+    if (previous.role !== requestedRole) {
+      await logAudit(req, {
+        action: 'update_allowed_email_role',
+        entityType: 'allowed_email',
+        entityId: id,
+        metadata: { email: previous.email, previousRole: previous.role, newRole: requestedRole }
+      });
+    }
 
     res.json(entry);
   } catch (error) {
@@ -104,6 +126,13 @@ const removeAllowedEmail = async (req, res) => {
     }
 
     await prisma.allowedEmail.delete({ where: { id } });
+
+    await logAudit(req, {
+      action: 'remove_allowed_email',
+      entityType: 'allowed_email',
+      entityId: id,
+      metadata: { email: entry.email, role: entry.role, addedBy: entry.addedBy }
+    });
 
     res.json({ message: 'Removed from whitelist. Existing user account (if any) is unchanged.' });
   } catch (error) {
