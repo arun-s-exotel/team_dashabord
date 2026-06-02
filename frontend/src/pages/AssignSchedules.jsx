@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { format } from 'date-fns';
+import { useState, useEffect, useMemo } from 'react';
+import { format, eachDayOfInterval, parseISO } from 'date-fns';
 import { users, shifts, schedules } from '../api/client';
 
 export default function AssignSchedules() {
@@ -12,6 +12,9 @@ export default function AssignSchedules() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
+  const [currentSchedules, setCurrentSchedules] = useState([]);
+  const [loadingSchedules, setLoadingSchedules] = useState(false);
+  const [expandedView, setExpandedView] = useState(false);
 
   useEffect(() => {
     const loadData = async () => {
@@ -30,6 +33,59 @@ export default function AssignSchedules() {
     };
     loadData();
   }, []);
+
+  const loadSchedules = async () => {
+    if (!startDate || !endDate) return;
+    if (new Date(startDate) > new Date(endDate)) return;
+    setLoadingSchedules(true);
+    try {
+      const res = await schedules.getAll({ startDate, endDate });
+      setCurrentSchedules(res.data);
+    } catch (error) {
+      console.error('Failed to load current schedules:', error);
+    } finally {
+      setLoadingSchedules(false);
+    }
+  };
+
+  useEffect(() => {
+    loadSchedules();
+  }, [startDate, endDate]);
+
+  const dateRange = useMemo(() => {
+    if (!startDate || !endDate) return [];
+    try {
+      const start = parseISO(startDate);
+      const end = parseISO(endDate);
+      if (start > end) return [];
+      return eachDayOfInterval({ start, end });
+    } catch {
+      return [];
+    }
+  }, [startDate, endDate]);
+
+  const isMultiDay = dateRange.length > 1;
+  const datesToShow = expandedView ? dateRange : dateRange.slice(0, 1);
+
+  const groupByShiftForDate = (date) => {
+    const dateKey = format(date, 'yyyy-MM-dd');
+    const daySchedules = currentSchedules.filter(s => s.date.slice(0, 10) === dateKey);
+    const assignedUserIds = new Set(daySchedules.map(s => s.userId));
+
+    const shiftGroups = allShifts.map(shift => ({
+      shift,
+      users: daySchedules
+        .filter(s => s.shiftId === shift.id)
+        .map(s => s.user)
+        .sort((a, b) => a.name.localeCompare(b.name))
+    }));
+
+    const unassigned = allUsers
+      .filter(u => !assignedUserIds.has(u.id))
+      .sort((a, b) => a.name.localeCompare(b.name));
+
+    return { shiftGroups, unassigned };
+  };
 
   const handleSelectAll = () => {
     if (selectedUsers.length === allUsers.length) {
@@ -78,6 +134,7 @@ export default function AssignSchedules() {
       setMessage({ type: 'success', text: res.data.message });
       setSelectedUsers([]);
       setSelectedShift('');
+      await loadSchedules();
     } catch (err) {
       setMessage({ type: 'error', text: err.response?.data?.error || 'Failed to assign schedules' });
     } finally {
@@ -210,6 +267,83 @@ export default function AssignSchedules() {
               />
             </div>
           </div>
+        </div>
+
+        <div className="bg-white rounded-lg shadow p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900">Current Assignments</h2>
+              <p className="text-sm text-gray-500">Who is on which shift for the selected range</p>
+            </div>
+            {isMultiDay && (
+              <button
+                type="button"
+                onClick={() => setExpandedView(v => !v)}
+                className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+              >
+                {expandedView ? 'Show start date only' : `Show all ${dateRange.length} days`}
+              </button>
+            )}
+          </div>
+
+          {loadingSchedules ? (
+            <div className="text-sm text-gray-500">Loading...</div>
+          ) : datesToShow.length === 0 ? (
+            <div className="text-sm text-gray-500">Pick a valid date range to see assignments.</div>
+          ) : (
+            <div className="space-y-6">
+              {datesToShow.map(date => {
+                const { shiftGroups, unassigned } = groupByShiftForDate(date);
+                return (
+                  <div key={date.toISOString()}>
+                    <h3 className="text-sm font-semibold text-gray-700 mb-3">
+                      {format(date, 'EEE, MMM d, yyyy')}
+                    </h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                      {shiftGroups.map(({ shift, users: usrs }) => (
+                        <div key={shift.id} className="border border-gray-200 rounded-lg p-3">
+                          <div className="flex items-baseline justify-between">
+                            <div className="font-medium text-gray-900 text-sm">{shift.name}</div>
+                            <div className="text-xs text-gray-500">{usrs.length}</div>
+                          </div>
+                          <div className="text-xs text-gray-500 mb-2">
+                            {shift.startTime} – {shift.endTime}
+                          </div>
+                          {usrs.length === 0 ? (
+                            <div className="text-xs text-gray-400 italic">No one assigned</div>
+                          ) : (
+                            <ul className="space-y-1">
+                              {usrs.map(u => (
+                                <li key={u.id} className="text-sm text-gray-700 truncate" title={u.name}>
+                                  {u.name}
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
+                      ))}
+                      {unassigned.length > 0 && (
+                        <div className="border border-amber-200 bg-amber-50 rounded-lg p-3">
+                          <div className="flex items-baseline justify-between">
+                            <div className="font-medium text-amber-900 text-sm">Unassigned</div>
+                            <div className="text-xs text-amber-700">{unassigned.length}</div>
+                          </div>
+                          <div className="text-xs text-amber-700 mb-2">No shift this day</div>
+                          <ul className="space-y-1">
+                            {unassigned.map(u => (
+                              <li key={u.id} className="text-sm text-amber-900 truncate" title={u.name}>
+                                {u.name}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         <div className="flex justify-end">
