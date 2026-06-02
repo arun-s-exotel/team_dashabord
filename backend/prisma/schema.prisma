@@ -12,40 +12,28 @@ enum Role {
   employee
 }
 
-enum WorkStatusType {
-  office
-  home
-  leave
-}
-
-enum LeaveType {
-  full
-  first_half
-  second_half
-}
-
 model User {
-  id           String       @id @default(uuid())
-  email        String       @unique
-  passwordHash String       @map("password_hash")
+  id           String     @id @default(uuid())
+  email        String     @unique
+  passwordHash String     @map("password_hash")
   name         String
-  role         Role         @default(employee)
-  isActive     Boolean      @default(true) @map("is_active")
-  createdAt    DateTime     @default(now()) @map("created_at")
+  role         Role       @default(employee)
+  isActive     Boolean    @default(true) @map("is_active")
+  createdAt    DateTime   @default(now()) @map("created_at")
   schedules    Schedule[]
-  workStatuses WorkStatus[]
 
   @@map("users")
 }
 
 model Shift {
-  id        String     @id @default(uuid())
-  name      String
-  startTime String     @map("start_time")
-  endTime   String     @map("end_time")
-  isActive  Boolean    @default(true) @map("is_active")
-  createdAt DateTime   @default(now()) @map("created_at")
-  schedules Schedule[]
+  id            String     @id @default(uuid())
+  name          String
+  startTime     String     @map("start_time")
+  endTime       String     @map("end_time")
+  isNightShift  Boolean    @default(false) @map("is_night_shift")
+  isActive      Boolean    @default(true) @map("is_active")
+  createdAt     DateTime   @default(now()) @map("created_at")
+  schedules     Schedule[]
 
   @@map("shifts")
 }
@@ -71,20 +59,6 @@ model AllowedEmail {
   createdAt DateTime @default(now()) @map("created_at")
 
   @@map("allowed_emails")
-}
-
-model WorkStatus {
-  id        String         @id @default(uuid())
-  userId    String         @map("user_id")
-  date      DateTime       @db.Date
-  status    WorkStatusType
-  leaveType LeaveType?     @map("leave_type")
-  notes     String?
-  updatedAt DateTime       @updatedAt @map("updated_at")
-  user      User           @relation(fields: [userId], references: [id], onDelete: Restrict)
-
-  @@unique([userId, date])
-  @@map("work_status")
 }
 
 model AuditLog {

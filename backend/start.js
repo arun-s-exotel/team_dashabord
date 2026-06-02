@@ -1,9 +1,15 @@
 const { PrismaClient } = require('@prisma/client');
 const bcrypt = require('bcryptjs');
 
+const ADMIN_EMAILS = [
+  'arun.s@exotel.com',
+  'ashwin.ts@exotel.com',
+  'manikandan.palanisamy@exotel.com'
+];
+
 const LEGACY_WHITELIST = [
   { email: 'arun.s@exotel.com', role: 'admin' },
-  { email: 'ashwin.ts@exotel.com', role: 'employee' },
+  { email: 'ashwin.ts@exotel.com', role: 'admin' },
   { email: 'vemana.kiran@exotel.com', role: 'employee' },
   { email: 'ruthwik.d@exotel.com', role: 'employee' },
   { email: 'sneha.sb@exotel.com', role: 'employee' },
@@ -22,7 +28,7 @@ const LEGACY_WHITELIST = [
   { email: 'ananya.ba@exotel.com', role: 'employee' },
   { email: 'turaka.aruna@exotel.com', role: 'employee' },
   { email: 'heena.k@exotel.com', role: 'employee' },
-  { email: 'manikandan.palanisamy@exotel.com', role: 'employee' }
+  { email: 'manikandan.palanisamy@exotel.com', role: 'admin' }
 ];
 
 async function seedIfNeeded() {
@@ -67,6 +73,19 @@ async function seedIfNeeded() {
       console.log('Created default admin user (email: admin@example.com, password: admin123)');
     } else {
       console.log('Admin user already exists, skipping admin seed');
+    }
+
+    for (const email of ADMIN_EMAILS) {
+      const updated = await prisma.user.updateMany({
+        where: { email, role: { not: 'admin' } },
+        data: { role: 'admin' }
+      });
+      if (updated.count > 0) console.log(`Promoted ${email} to admin (users)`);
+      const updatedWhitelist = await prisma.allowedEmail.updateMany({
+        where: { email, role: { not: 'admin' } },
+        data: { role: 'admin' }
+      });
+      if (updatedWhitelist.count > 0) console.log(`Promoted ${email} to admin (allowed_emails)`);
     }
 
     const allowedCount = await prisma.allowedEmail.count();

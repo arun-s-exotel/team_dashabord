@@ -4,7 +4,6 @@ import { auditLogs } from '../api/client';
 const ACTION_LABELS = {
   bulk_assign_schedules: 'Bulk assign schedules',
   delete_schedule: 'Delete schedule',
-  delete_work_status: 'Delete work status',
   deactivate_user: 'Deactivate user',
   reactivate_user: 'Reactivate user',
   change_user_role: 'Change user role',
@@ -19,7 +18,6 @@ const ACTION_LABELS = {
 const ACTION_TONES = {
   bulk_assign_schedules: 'amber',
   delete_schedule: 'red',
-  delete_work_status: 'red',
   deactivate_user: 'red',
   reactivate_user: 'green',
   change_user_role: 'purple',
@@ -60,8 +58,6 @@ function EntitySummary({ entry }) {
     }
     case 'delete_schedule':
       return `${m.userEmail} on ${m.date?.slice(0, 10)} (shift "${m.shiftName}")`;
-    case 'delete_work_status':
-      return `${m.previousStatus}${m.previousLeaveType ? ` (${m.previousLeaveType})` : ''} on ${m.date}`;
     case 'deactivate_user':
     case 'reactivate_user':
       return m.targetEmail;

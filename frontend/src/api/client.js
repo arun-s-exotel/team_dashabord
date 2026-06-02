@@ -61,16 +61,9 @@ export const schedules = {
   delete: (id) => client.delete(`/schedules/${id}`)
 };
 
-export const workStatus = {
-  getAll: (params) => client.get('/work-status', { params }),
-  update: (data) => client.put('/work-status', data),
-  bulkUpdate: (data) => client.put('/work-status/bulk', data),
-  delete: (date) => client.delete(`/work-status/${date}`)
-};
-
 export const reports = {
-  getSummary: (params) => client.get('/reports/summary', { params }),
-  exportCSV: (params) => client.get('/reports/export', { params, responseType: 'blob' })
+  nightShift: (params) => client.get('/reports/night-shift', { params }),
+  nightShiftExport: (params) => client.get('/reports/night-shift/export', { params, responseType: 'blob' })
 };
 
 export const auditLogs = {

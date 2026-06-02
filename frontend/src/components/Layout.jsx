@@ -83,7 +83,7 @@ const icons = {
 const fullWidthRoutes = ['/calendar', '/list', '/reports'];
 
 export default function Layout({ children }) {
-  const { user, logout, isAdmin } = useAuth();
+  const { user, logout, isAdmin, isEffectiveAdmin, isImpersonating, setViewAsRole } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -118,17 +118,17 @@ export default function Layout({ children }) {
     { path: '/', label: 'Dashboard', icon: 'home', roles: ['admin', 'employee'] },
     { path: '/calendar', label: 'Calendar', icon: 'calendar', roles: ['admin', 'employee'] },
     { path: '/list', label: 'List View', icon: 'list', roles: ['admin', 'employee'] },
-    { path: '/my-status', label: 'My Status', icon: 'status', roles: ['admin', 'employee'] },
-    { path: '/reports', label: 'Reports', icon: 'reports', roles: ['admin', 'employee'] },
+    { path: '/reports', label: 'Night Shift Report', icon: 'reports', roles: ['admin', 'employee'] },
     { path: '/employees', label: 'Team', icon: 'users', roles: ['admin'] },
     { path: '/shifts', label: 'Shifts', icon: 'shifts', roles: ['admin'] },
     { path: '/assign', label: 'Assign', icon: 'assign', roles: ['admin'] },
     { path: '/activity', label: 'Activity', icon: 'activity', roles: ['admin'] },
   ];
 
-  const filteredNav = navItems.filter(item => item.roles.includes(user?.role));
-  const mainNav = filteredNav.slice(0, 5);
-  const adminNav = filteredNav.slice(5);
+  const effectiveRole = isEffectiveAdmin ? 'admin' : 'employee';
+  const filteredNav = navItems.filter(item => item.roles.includes(effectiveRole));
+  const mainNav = filteredNav.slice(0, 4);
+  const adminNav = filteredNav.slice(4);
 
   const NavLink = ({ item, mobile = false }) => {
     const isActive = location.pathname === item.path;
@@ -214,7 +214,7 @@ export default function Layout({ children }) {
               ))}
             </div>
             
-            {isAdmin && adminNav.length > 0 && (
+            {isEffectiveAdmin && adminNav.length > 0 && (
               <>
                 {isExpanded && (
                   <p className="px-3 text-xs font-semibold text-slate-400 uppercase tracking-wider mt-6 mb-3">Admin</p>
@@ -283,15 +283,37 @@ export default function Layout({ children }) {
               <div className="hidden lg:flex items-center gap-2 text-sm">
                 <span className="text-slate-500">Welcome,</span>
                 <span className="font-semibold text-slate-900">{user?.name?.split(' ')[0]}</span>
-                {isAdmin && (
+                {isAdmin && !isImpersonating && (
                   <span className="ml-1 px-2 py-0.5 text-xs font-medium bg-gradient-to-r from-purple-500 to-indigo-500 text-white rounded-full">
                     Admin
+                  </span>
+                )}
+                {isImpersonating && (
+                  <span className="ml-1 px-2 py-0.5 text-xs font-medium bg-amber-100 text-amber-800 rounded-full border border-amber-300">
+                    Viewing as Employee
                   </span>
                 )}
               </div>
             </div>
 
             <div className="flex items-center gap-3">
+              {isAdmin && (
+                <button
+                  onClick={() => setViewAsRole(isImpersonating ? 'admin' : 'employee')}
+                  className={`hidden sm:inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-full border transition-colors ${
+                    isImpersonating
+                      ? 'bg-amber-50 border-amber-300 text-amber-800 hover:bg-amber-100'
+                      : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                  }`}
+                  title={isImpersonating ? 'Switch back to admin view' : 'Preview as employee'}
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                  </svg>
+                  {isImpersonating ? 'Back to admin' : 'View as employee'}
+                </button>
+              )}
               <div className="lg:hidden flex items-center gap-2">
                 <span className="text-sm font-medium text-slate-700">{user?.name?.split(' ')[0]}</span>
                 <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center text-white font-semibold text-xs">
@@ -301,6 +323,20 @@ export default function Layout({ children }) {
             </div>
           </div>
         </header>
+
+        {isImpersonating && (
+          <div className="bg-amber-50 border-b border-amber-200 px-4 lg:px-6 py-2 flex items-center justify-between gap-3">
+            <p className="text-sm text-amber-800">
+              You're previewing the employee view. Admin pages are hidden.
+            </p>
+            <button
+              onClick={() => setViewAsRole('admin')}
+              className="text-sm font-medium text-amber-800 hover:text-amber-900 underline"
+            >
+              Back to admin view
+            </button>
+          </div>
+        )}
 
         {/* Page content */}
         <main className={`p-4 lg:p-6 ${isFullWidth ? '' : 'max-w-6xl mx-auto'}`}>

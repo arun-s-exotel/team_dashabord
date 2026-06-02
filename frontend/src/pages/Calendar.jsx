@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Calendar as BigCalendar, dateFnsLocalizer } from 'react-big-calendar';
 import { format, parse, startOfWeek, getDay, startOfMonth, endOfMonth, addMonths, subMonths } from 'date-fns';
 import { enUS } from 'date-fns/locale';
-import { workStatus, schedules, users } from '../api/client';
+import { schedules, users, shifts } from '../api/client';
 
 const locales = { 'en-US': enUS };
 const localizer = dateFnsLocalizer({
@@ -19,20 +19,19 @@ export default function CalendarPage() {
   const [date, setDate] = useState(new Date());
   const [loading, setLoading] = useState(true);
   const [allUsers, setAllUsers] = useState([]);
+  const [allShifts, setAllShifts] = useState([]);
   const [selectedUser, setSelectedUser] = useState('all');
+  const [shiftFilter, setShiftFilter] = useState('all');
 
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
       const start = startOfMonth(subMonths(date, 1));
       const end = endOfMonth(addMonths(date, 1));
-      
-      const [usersRes, statusRes, schedulesRes] = await Promise.all([
+
+      const [usersRes, shiftsRes, schedulesRes] = await Promise.all([
         users.getAll(),
-        workStatus.getAll({ 
-          startDate: format(start, 'yyyy-MM-dd'),
-          endDate: format(end, 'yyyy-MM-dd')
-        }),
+        shifts.getAll(),
         schedules.getAll({
           startDate: format(start, 'yyyy-MM-dd'),
           endDate: format(end, 'yyyy-MM-dd')
@@ -40,21 +39,20 @@ export default function CalendarPage() {
       ]);
 
       setAllUsers(usersRes.data);
+      setAllShifts(shiftsRes.data);
 
-      const statusEvents = statusRes.data.map(status => ({
-        id: `status-${status.id}`,
-        title: `${status.user.name} - ${status.status === 'leave' 
-          ? `Leave (${status.leaveType === 'full' ? 'Full' : status.leaveType === 'first_half' ? '1st Half' : '2nd Half'})` 
-          : status.status === 'office' ? 'Office' : 'WFH'}`,
-        start: new Date(status.date),
-        end: new Date(status.date),
+      const scheduleEvents = schedulesRes.data.map(s => ({
+        id: `sched-${s.id}`,
+        title: `${s.user.name} – ${s.shift.name}`,
+        start: new Date(s.date.slice(0, 10)),
+        end: new Date(s.date.slice(0, 10)),
         allDay: true,
-        type: status.status,
-        userId: status.userId,
-        userName: status.user.name
+        userId: s.userId,
+        shiftId: s.shiftId,
+        isNightShift: s.shift.isNightShift
       }));
 
-      setEvents(statusEvents);
+      setEvents(scheduleEvents);
     } catch (error) {
       console.error('Failed to load calendar data:', error);
     } finally {
@@ -67,21 +65,16 @@ export default function CalendarPage() {
   }, [loadData]);
 
   const filteredEvents = useMemo(() => {
-    if (selectedUser === 'all') return events;
-    return events.filter(e => e.userId === selectedUser);
-  }, [events, selectedUser]);
+    return events.filter(e => {
+      if (selectedUser !== 'all' && e.userId !== selectedUser) return false;
+      if (shiftFilter === 'night' && !e.isNightShift) return false;
+      if (shiftFilter !== 'all' && shiftFilter !== 'night' && e.shiftId !== shiftFilter) return false;
+      return true;
+    });
+  }, [events, selectedUser, shiftFilter]);
 
   const eventStyleGetter = useCallback((event) => {
-    let backgroundColor = '#6b7280';
-    
-    if (event.type === 'office') {
-      backgroundColor = '#10b981';
-    } else if (event.type === 'home') {
-      backgroundColor = '#3b82f6';
-    } else if (event.type === 'leave') {
-      backgroundColor = '#f87171';
-    }
-
+    const backgroundColor = event.isNightShift ? '#7c3aed' : '#3b82f6';
     return {
       style: {
         backgroundColor,
@@ -100,34 +93,26 @@ export default function CalendarPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Team Calendar</h1>
-          <p className="text-slate-500 mt-1">View your team's work status and schedules</p>
+          <p className="text-slate-500 mt-1">Shift assignments across the team</p>
         </div>
       </div>
 
-      {/* Filters Card */}
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4">
         <div className="flex flex-wrap items-center justify-between gap-4">
-          {/* Legend */}
           <div className="flex flex-wrap items-center gap-4">
             <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-emerald-500"></div>
-              <span className="text-sm text-slate-600">Office</span>
-            </div>
-            <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full bg-blue-500"></div>
-              <span className="text-sm text-slate-600">Work from Home</span>
+              <span className="text-sm text-slate-600">Regular shift</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-red-400"></div>
-              <span className="text-sm text-slate-600">Leave</span>
+              <div className="w-3 h-3 rounded-full bg-purple-600"></div>
+              <span className="text-sm text-slate-600">Night shift</span>
             </div>
           </div>
 
-          {/* Controls */}
           <div className="flex items-center gap-3">
             <select
               value={selectedUser}
@@ -140,12 +125,24 @@ export default function CalendarPage() {
               ))}
             </select>
 
+            <select
+              value={shiftFilter}
+              onChange={(e) => setShiftFilter(e.target.value)}
+              className="px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+            >
+              <option value="all">All Shifts</option>
+              <option value="night">Night shifts only</option>
+              {allShifts.map(s => (
+                <option key={s.id} value={s.id}>{s.name}</option>
+              ))}
+            </select>
+
             <div className="flex rounded-xl border border-slate-200 overflow-hidden">
               <button
                 onClick={() => setView('month')}
                 className={`px-4 py-2 text-sm font-medium transition-all ${
-                  view === 'month' 
-                    ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white' 
+                  view === 'month'
+                    ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white'
                     : 'bg-white text-slate-600 hover:bg-slate-50'
                 }`}
               >
@@ -154,8 +151,8 @@ export default function CalendarPage() {
               <button
                 onClick={() => setView('week')}
                 className={`px-4 py-2 text-sm font-medium transition-all border-l border-slate-200 ${
-                  view === 'week' 
-                    ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white' 
+                  view === 'week'
+                    ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white'
                     : 'bg-white text-slate-600 hover:bg-slate-50'
                 }`}
               >
@@ -166,7 +163,6 @@ export default function CalendarPage() {
         </div>
       </div>
 
-      {/* Calendar Card */}
       {loading ? (
         <div className="flex items-center justify-center h-96 bg-white rounded-2xl shadow-sm border border-slate-200">
           <div className="flex flex-col items-center gap-3">

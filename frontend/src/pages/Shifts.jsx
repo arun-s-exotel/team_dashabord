@@ -6,7 +6,7 @@ export default function Shifts() {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingShift, setEditingShift] = useState(null);
-  const [formData, setFormData] = useState({ name: '', startTime: '', endTime: '' });
+  const [formData, setFormData] = useState({ name: '', startTime: '', endTime: '', isNightShift: false });
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -28,10 +28,10 @@ export default function Shifts() {
   const openModal = (shift = null) => {
     if (shift) {
       setEditingShift(shift);
-      setFormData({ name: shift.name, startTime: shift.startTime, endTime: shift.endTime });
+      setFormData({ name: shift.name, startTime: shift.startTime, endTime: shift.endTime, isNightShift: !!shift.isNightShift });
     } else {
       setEditingShift(null);
-      setFormData({ name: '', startTime: '', endTime: '' });
+      setFormData({ name: '', startTime: '', endTime: '', isNightShift: false });
     }
     setError('');
     setShowModal(true);
@@ -40,8 +40,17 @@ export default function Shifts() {
   const closeModal = () => {
     setShowModal(false);
     setEditingShift(null);
-    setFormData({ name: '', startTime: '', endTime: '' });
+    setFormData({ name: '', startTime: '', endTime: '', isNightShift: false });
     setError('');
+  };
+
+  const toggleNightShift = async (shift) => {
+    try {
+      await shifts.update(shift.id, { isNightShift: !shift.isNightShift });
+      loadShifts();
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to update shift');
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -99,11 +108,27 @@ export default function Shifts() {
         {allShifts.map(shift => (
           <div key={shift.id} className="bg-white rounded-lg shadow p-6">
             <div className="flex items-start justify-between">
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900">{shift.name}</h3>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="text-lg font-semibold text-gray-900">{shift.name}</h3>
+                  {shift.isNightShift && (
+                    <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full bg-purple-100 text-purple-700 border border-purple-200">
+                      Night
+                    </span>
+                  )}
+                </div>
                 <p className="text-gray-600 mt-1">
                   {shift.startTime} - {shift.endTime}
                 </p>
+                <label className="mt-3 flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={!!shift.isNightShift}
+                    onChange={() => toggleNightShift(shift)}
+                    className="w-4 h-4 text-purple-600 rounded border-gray-300 focus:ring-purple-500"
+                  />
+                  <span className="text-xs text-gray-600">Counts toward night-shift allowance</span>
+                </label>
               </div>
               <div className="flex gap-2">
                 <button
@@ -183,6 +208,16 @@ export default function Shifts() {
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
               </div>
+
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={formData.isNightShift}
+                  onChange={(e) => setFormData({ ...formData, isNightShift: e.target.checked })}
+                  className="w-4 h-4 text-purple-600 rounded border-gray-300 focus:ring-purple-500"
+                />
+                <span className="text-sm text-gray-700">Mark as <span className="font-medium">night shift</span> (counts toward allowance)</span>
+              </label>
 
               <div className="flex justify-end gap-3 pt-4">
                 <button

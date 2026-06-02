@@ -6,7 +6,6 @@ const allowedEmailController = require('../controllers/allowedEmailController');
 const auditLogController = require('../controllers/auditLogController');
 const shiftController = require('../controllers/shiftController');
 const scheduleController = require('../controllers/scheduleController');
-const workStatusController = require('../controllers/workStatusController');
 const reportController = require('../controllers/reportController');
 
 const router = express.Router();
@@ -38,15 +37,9 @@ router.get('/schedules', authenticate, scheduleController.getSchedules);
 router.post('/schedules/bulk', authenticate, requireAdmin, scheduleController.bulkAssignSchedules);
 router.delete('/schedules/:id', authenticate, requireAdmin, scheduleController.deleteSchedule);
 
-// Work status routes
-router.get('/work-status', authenticate, workStatusController.getWorkStatuses);
-router.put('/work-status', authenticate, workStatusController.updateWorkStatus);
-router.put('/work-status/bulk', authenticate, workStatusController.bulkUpdateWorkStatus);
-router.delete('/work-status/:date', authenticate, workStatusController.deleteWorkStatus);
-
-// Report routes
-router.get('/reports/summary', authenticate, reportController.getSummary);
-router.get('/reports/export', authenticate, requireAdmin, reportController.exportCSV);
+// Report routes (night-shift allowance)
+router.get('/reports/night-shift', authenticate, reportController.getNightShiftReport);
+router.get('/reports/night-shift/export', authenticate, requireAdmin, reportController.exportNightShiftCSV);
 
 // Audit log routes (admin only)
 router.get('/audit-logs', authenticate, requireAdmin, auditLogController.listAuditLogs);

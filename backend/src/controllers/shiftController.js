@@ -18,21 +18,26 @@ const getShifts = async (req, res) => {
 
 const createShift = async (req, res) => {
   try {
-    const { name, startTime, endTime } = req.body;
+    const { name, startTime, endTime, isNightShift } = req.body;
 
     if (!name || !startTime || !endTime) {
       return res.status(400).json({ error: 'Name, start time, and end time are required' });
     }
 
     const shift = await prisma.shift.create({
-      data: { name, startTime, endTime }
+      data: {
+        name,
+        startTime,
+        endTime,
+        isNightShift: Boolean(isNightShift)
+      }
     });
 
     await logAudit(req, {
       action: 'create_shift',
       entityType: 'shift',
       entityId: shift.id,
-      metadata: { name, startTime, endTime }
+      metadata: { name, startTime, endTime, isNightShift: Boolean(isNightShift) }
     });
 
     res.status(201).json(shift);
@@ -45,7 +50,7 @@ const createShift = async (req, res) => {
 const updateShift = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, startTime, endTime, isActive } = req.body;
+    const { name, startTime, endTime, isActive, isNightShift } = req.body;
 
     const previous = await prisma.shift.findUnique({ where: { id } });
     if (!previous) {
@@ -58,7 +63,8 @@ const updateShift = async (req, res) => {
         ...(name && { name }),
         ...(startTime && { startTime }),
         ...(endTime && { endTime }),
-        ...(typeof isActive === 'boolean' && { isActive })
+        ...(typeof isActive === 'boolean' && { isActive }),
+        ...(typeof isNightShift === 'boolean' && { isNightShift })
       }
     });
 
@@ -67,8 +73,8 @@ const updateShift = async (req, res) => {
       entityType: 'shift',
       entityId: id,
       metadata: {
-        previous: { name: previous.name, startTime: previous.startTime, endTime: previous.endTime, isActive: previous.isActive },
-        current: { name: shift.name, startTime: shift.startTime, endTime: shift.endTime, isActive: shift.isActive }
+        previous: { name: previous.name, startTime: previous.startTime, endTime: previous.endTime, isActive: previous.isActive, isNightShift: previous.isNightShift },
+        current: { name: shift.name, startTime: shift.startTime, endTime: shift.endTime, isActive: shift.isActive, isNightShift: shift.isNightShift }
       }
     });
 
