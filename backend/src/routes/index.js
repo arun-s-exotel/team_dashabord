@@ -2,6 +2,7 @@ const express = require('express');
 const { authenticate, requireAdmin } = require('../middleware/auth');
 const authController = require('../controllers/authController');
 const userController = require('../controllers/userController');
+const allowedEmailController = require('../controllers/allowedEmailController');
 const shiftController = require('../controllers/shiftController');
 const scheduleController = require('../controllers/scheduleController');
 const workStatusController = require('../controllers/workStatusController');
@@ -16,9 +17,14 @@ router.get('/auth/me', authenticate, authController.me);
 
 // User routes
 router.get('/users', authenticate, userController.getUsers);
-router.post('/users', authenticate, requireAdmin, userController.createUser);
 router.put('/users/:id', authenticate, requireAdmin, userController.updateUser);
 router.delete('/users/:id', authenticate, requireAdmin, userController.deleteUser);
+
+// Allowed email (whitelist) routes
+router.get('/allowed-emails', authenticate, requireAdmin, allowedEmailController.listAllowedEmails);
+router.post('/allowed-emails', authenticate, requireAdmin, allowedEmailController.addAllowedEmail);
+router.put('/allowed-emails/:id', authenticate, requireAdmin, allowedEmailController.updateAllowedEmail);
+router.delete('/allowed-emails/:id', authenticate, requireAdmin, allowedEmailController.removeAllowedEmail);
 
 // Shift routes
 router.get('/shifts', authenticate, shiftController.getShifts);

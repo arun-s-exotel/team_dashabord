@@ -4,32 +4,7 @@ const { PrismaClient } = require('@prisma/client');
 
 const prisma = new PrismaClient();
 
-const ALLOWED_EMAILS = [
-  'ashwin.ts@exotel.com',
-  'vemana.kiran@exotel.com',
-  'ruthwik.d@exotel.com',
-  'sneha.sb@exotel.com',
-  'akhil.a@exotel.com',
-  'shreya.singh@exotel.com',
-  'ashwini.v@exotel.com',
-  'pratnadeep.sinha@exotel.com',
-  'harsh.agrawal@exotel.com',
-  'mangala.rajeshwari@exotel.com',
-  'naveenkumar.k@exotel.com',
-  'rajnish.singh@exotel.com',
-  'diya.sarkar@exotel.com',
-  'bindu.bhavani@exotel.com',
-  'arun.naik@exotel.com',
-  'rohit.anand@exotel.com',
-  'ananya.ba@exotel.com',
-  'turaka.aruna@exotel.com',
-  'heena.k@exotel.com',
-  'manikandan.palanisamy@exotel.com',
-  'arun.s@exotel.com'
-];
-
 const PRIMARY_ADMIN_EMAIL = 'arun.s@exotel.com';
-const MAX_USERS = ALLOWED_EMAILS.length;
 
 const register = async (req, res) => {
   try {
@@ -41,13 +16,11 @@ const register = async (req, res) => {
 
     const normalizedEmail = email.toLowerCase().trim();
 
-    if (!ALLOWED_EMAILS.includes(normalizedEmail)) {
-      return res.status(403).json({ error: 'This email is not authorized to register. Only approved Exotel team members can sign up.' });
-    }
+    const allowed = await prisma.allowedEmail.findUnique({ where: { email: normalizedEmail } });
+    const isPrimaryAdmin = normalizedEmail === PRIMARY_ADMIN_EMAIL;
 
-    const userCount = await prisma.user.count();
-    if (userCount >= MAX_USERS) {
-      return res.status(400).json({ error: `Maximum user limit reached (${MAX_USERS} users)` });
+    if (!allowed && !isPrimaryAdmin) {
+      return res.status(403).json({ error: 'This email is not authorized to register. Ask an admin to add you to the team whitelist.' });
     }
 
     const existingUser = await prisma.user.findUnique({ where: { email: normalizedEmail } });
@@ -56,14 +29,14 @@ const register = async (req, res) => {
     }
 
     const passwordHash = await bcrypt.hash(password, 10);
-    const isPrimaryAdmin = normalizedEmail === PRIMARY_ADMIN_EMAIL;
+    const role = isPrimaryAdmin ? 'admin' : (allowed?.role ?? 'employee');
 
     const user = await prisma.user.create({
       data: {
         email: normalizedEmail,
         passwordHash,
         name,
-        role: isPrimaryAdmin ? 'admin' : 'employee'
+        role
       },
       select: { id: true, email: true, name: true, role: true }
     });

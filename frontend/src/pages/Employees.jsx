@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { users } from '../api/client';
+import { users, allowedEmails } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 
 const PRIMARY_ADMIN_EMAIL = 'arun.s@exotel.com';
@@ -7,101 +7,136 @@ const PRIMARY_ADMIN_EMAIL = 'arun.s@exotel.com';
 export default function Employees() {
   const { user: currentUser } = useAuth();
   const [allUsers, setAllUsers] = useState([]);
+  const [whitelist, setWhitelist] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [showModal, setShowModal] = useState(false);
+  const [showAddModal, setShowAddModal] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
-  const [formData, setFormData] = useState({ name: '', email: '', password: '', role: 'employee' });
+  const [editForm, setEditForm] = useState({ name: '', role: 'employee' });
+  const [addForm, setAddForm] = useState({ email: '', role: 'employee' });
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
 
   const isPrimaryAdmin = currentUser?.email === PRIMARY_ADMIN_EMAIL;
 
-  const loadUsers = async () => {
+  const loadAll = async () => {
     try {
-      const res = await users.getAll();
-      setAllUsers(res.data);
+      const [usersRes, whitelistRes] = await Promise.all([
+        users.getAll(),
+        allowedEmails.getAll()
+      ]);
+      setAllUsers(usersRes.data);
+      setWhitelist(whitelistRes.data);
     } catch (error) {
-      console.error('Failed to load users:', error);
+      console.error('Failed to load:', error);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    loadUsers();
+    loadAll();
   }, []);
 
-  const openModal = (user = null) => {
-    if (user) {
-      setEditingUser(user);
-      setFormData({ name: user.name, email: user.email, password: '', role: user.role });
-    } else {
-      setEditingUser(null);
-      setFormData({ name: '', email: '', password: '', role: 'employee' });
-    }
+  const openAddModal = () => {
+    setAddForm({ email: '', role: 'employee' });
     setError('');
-    setShowModal(true);
+    setShowAddModal(true);
   };
 
-  const closeModal = () => {
-    setShowModal(false);
+  const closeAddModal = () => {
+    setShowAddModal(false);
+    setError('');
+  };
+
+  const openEditModal = (user) => {
+    setEditingUser(user);
+    setEditForm({ name: user.name, role: user.role });
+    setError('');
+  };
+
+  const closeEditModal = () => {
     setEditingUser(null);
-    setFormData({ name: '', email: '', password: '', role: 'employee' });
     setError('');
   };
 
-  const handleSubmit = async (e) => {
+  const handleAddEmail = async (e) => {
     e.preventDefault();
     setError('');
     setSaving(true);
-
     try {
-      if (editingUser) {
-        const updateData = { name: formData.name };
-        if (isPrimaryAdmin) {
-          updateData.role = formData.role;
-        }
-        await users.update(editingUser.id, updateData);
-      } else {
-        if (!formData.password) {
-          setError('Password is required for new employees');
-          setSaving(false);
-          return;
-        }
-        if (!formData.email.toLowerCase().endsWith('@exotel.com')) {
-          setError('Only @exotel.com emails are allowed');
-          setSaving(false);
-          return;
-        }
-        await users.create({
-          ...formData,
-          email: formData.email.toLowerCase(),
-          role: isPrimaryAdmin ? formData.role : 'employee'
-        });
+      if (!addForm.email.toLowerCase().endsWith('@exotel.com')) {
+        setError('Only @exotel.com emails are allowed');
+        setSaving(false);
+        return;
       }
-      closeModal();
-      loadUsers();
+      await allowedEmails.add({
+        email: addForm.email.toLowerCase().trim(),
+        role: isPrimaryAdmin ? addForm.role : 'employee'
+      });
+      closeAddModal();
+      loadAll();
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to save employee');
+      setError(err.response?.data?.error || 'Failed to add email');
     } finally {
       setSaving(false);
     }
   };
 
-  const handleDelete = async (user) => {
+  const handleEditUser = async (e) => {
+    e.preventDefault();
+    setError('');
+    setSaving(true);
+    try {
+      const updateData = { name: editForm.name };
+      if (isPrimaryAdmin) updateData.role = editForm.role;
+      await users.update(editingUser.id, updateData);
+      closeEditModal();
+      loadAll();
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to update member');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleRemoveUser = async (user) => {
     if (user.email === PRIMARY_ADMIN_EMAIL) {
       alert('Cannot remove the primary admin');
       return;
     }
-    if (!window.confirm(`Are you sure you want to remove ${user.name}?`)) return;
-
+    if (!window.confirm(`Remove ${user.name} from the team? Their account will be deactivated.`)) return;
     try {
       await users.delete(user.id);
-      loadUsers();
+      loadAll();
     } catch (err) {
-      alert(err.response?.data?.error || 'Failed to remove employee');
+      alert(err.response?.data?.error || 'Failed to remove member');
     }
   };
+
+  const handleRemoveWhitelist = async (entry) => {
+    if (entry.registered) {
+      if (!window.confirm(`${entry.email} has already registered. Removing them from the whitelist will not delete their account, but they will not be able to re-register if removed later. Continue?`)) return;
+    } else {
+      if (!window.confirm(`Remove pending invite for ${entry.email}?`)) return;
+    }
+    try {
+      await allowedEmails.remove(entry.id);
+      loadAll();
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to remove from whitelist');
+    }
+  };
+
+  const handleChangeWhitelistRole = async (entry, newRole) => {
+    try {
+      await allowedEmails.update(entry.id, { role: newRole });
+      loadAll();
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to update role');
+    }
+  };
+
+  const pendingInvites = whitelist.filter(w => !w.registered);
 
   if (loading) {
     return (
@@ -119,17 +154,22 @@ export default function Employees() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Team Members</h1>
-          <p className="text-slate-500 mt-1">Manage your team's accounts</p>
+          <p className="text-slate-500 mt-1">Manage your team's accounts and invites</p>
         </div>
         <button
-          onClick={() => openModal()}
+          onClick={openAddModal}
           className="px-4 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-colors font-semibold shadow-lg shadow-blue-500/25"
         >
-          Add Member
+          Add Email
         </button>
       </div>
 
-      {/* Primary Admin Notice */}
+      <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl">
+        <p className="text-sm text-blue-800">
+          <span className="font-semibold">How it works:</span> add an Exotel email here, then the teammate goes to the Register page and creates their own account. You never see or set their password.
+        </p>
+      </div>
+
       {isPrimaryAdmin && (
         <div className="p-4 bg-purple-50 border border-purple-200 rounded-xl">
           <div className="flex items-start gap-3">
@@ -138,13 +178,69 @@ export default function Employees() {
             </svg>
             <div>
               <p className="text-sm font-medium text-purple-800">Primary Admin</p>
-              <p className="text-xs text-purple-600 mt-1">You can assign or revoke admin privileges for other team members.</p>
+              <p className="text-xs text-purple-600 mt-1">You can assign or revoke admin privileges for other team members and pending invites.</p>
             </div>
           </div>
         </div>
       )}
 
+      {pendingInvites.length > 0 && (
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+          <div className="px-6 py-4 border-b border-slate-200 bg-amber-50">
+            <h2 className="text-sm font-semibold text-amber-900">Pending invites ({pendingInvites.length})</h2>
+            <p className="text-xs text-amber-700 mt-0.5">These emails are whitelisted but haven't registered yet.</p>
+          </div>
+          <table className="min-w-full">
+            <thead>
+              <tr className="bg-slate-50 border-b border-slate-200">
+                <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Email</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Role on signup</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Added by</th>
+                <th className="px-6 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {pendingInvites.map(entry => (
+                <tr key={entry.id} className="hover:bg-slate-50 transition-colors">
+                  <td className="px-6 py-4 text-sm text-slate-900">{entry.email}</td>
+                  <td className="px-6 py-4">
+                    {isPrimaryAdmin && entry.email !== PRIMARY_ADMIN_EMAIL ? (
+                      <select
+                        value={entry.role}
+                        onChange={(e) => handleChangeWhitelistRole(entry, e.target.value)}
+                        className="text-xs border border-slate-200 rounded-lg px-2 py-1 focus:ring-2 focus:ring-blue-500 outline-none"
+                      >
+                        <option value="employee">Employee</option>
+                        <option value="admin">Admin</option>
+                      </select>
+                    ) : (
+                      <span className={`px-2.5 py-1 text-xs font-medium rounded-full ${
+                        entry.role === 'admin' ? 'bg-purple-100 text-purple-700' : 'bg-slate-100 text-slate-700'
+                      }`}>
+                        {entry.role === 'admin' ? 'Admin' : 'Employee'}
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-6 py-4 text-sm text-slate-500">{entry.addedBy}</td>
+                  <td className="px-6 py-4 text-right text-sm">
+                    <button
+                      onClick={() => handleRemoveWhitelist(entry)}
+                      className="text-red-600 hover:text-red-800 font-medium"
+                    >
+                      Remove
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+        <div className="px-6 py-4 border-b border-slate-200">
+          <h2 className="text-sm font-semibold text-slate-900">Registered members ({allUsers.length})</h2>
+        </div>
         <table className="min-w-full">
           <thead>
             <tr className="bg-slate-50 border-b border-slate-200">
@@ -175,8 +271,8 @@ export default function Employees() {
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <span className={`px-2.5 py-1 text-xs font-medium rounded-full ${
-                    user.role === 'admin' 
-                      ? 'bg-purple-100 text-purple-700' 
+                    user.role === 'admin'
+                      ? 'bg-purple-100 text-purple-700'
                       : 'bg-slate-100 text-slate-700'
                   }`}>
                     {user.role === 'admin' ? 'Admin' : 'Employee'}
@@ -187,14 +283,14 @@ export default function Employees() {
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
                   <button
-                    onClick={() => openModal(user)}
+                    onClick={() => openEditModal(user)}
                     className="text-blue-600 hover:text-blue-800 font-medium mr-4"
                   >
                     Edit
                   </button>
                   {user.email !== PRIMARY_ADMIN_EMAIL && (
                     <button
-                      onClick={() => handleDelete(user)}
+                      onClick={() => handleRemoveUser(user)}
                       className="text-red-600 hover:text-red-800 font-medium"
                     >
                       Remove
@@ -205,19 +301,13 @@ export default function Employees() {
             ))}
           </tbody>
         </table>
-        <div className="bg-slate-50 px-6 py-3 border-t border-slate-200">
-          <p className="text-sm text-slate-500">
-            <span className="font-medium text-slate-700">{allUsers.length}</span> of 21 team slots used
-          </p>
-        </div>
       </div>
 
-      {showModal && (
+      {showAddModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 m-4">
-            <h2 className="text-xl font-bold text-slate-900 mb-4">
-              {editingUser ? 'Edit Member' : 'Add Member'}
-            </h2>
+            <h2 className="text-xl font-bold text-slate-900 mb-1">Add Email to Whitelist</h2>
+            <p className="text-sm text-slate-500 mb-4">The teammate will then register themselves at /register.</p>
 
             {error && (
               <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm">
@@ -225,68 +315,109 @@ export default function Employees() {
               </div>
             )}
 
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleAddEmail} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Exotel Email</label>
+                <input
+                  type="email"
+                  value={addForm.email}
+                  onChange={(e) => setAddForm({ ...addForm, email: e.target.value })}
+                  required
+                  placeholder="name@exotel.com"
+                  className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Role on signup</label>
+                {isPrimaryAdmin ? (
+                  <select
+                    value={addForm.role}
+                    onChange={(e) => setAddForm({ ...addForm, role: e.target.value })}
+                    className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                  >
+                    <option value="employee">Employee</option>
+                    <option value="admin">Admin</option>
+                  </select>
+                ) : (
+                  <div className="px-4 py-2.5 bg-slate-100 border border-slate-200 rounded-xl text-slate-600 text-sm">
+                    Employee
+                    <span className="text-xs text-slate-400 ml-2">(Only primary admin can pre-assign admin)</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={closeAddModal}
+                  className="px-4 py-2.5 text-slate-700 bg-slate-100 rounded-xl hover:bg-slate-200 transition-colors font-medium"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="px-4 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-colors font-medium disabled:opacity-50 shadow-lg shadow-blue-500/25"
+                >
+                  {saving ? 'Saving...' : 'Add Email'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {editingUser && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 m-4">
+            <h2 className="text-xl font-bold text-slate-900 mb-4">Edit Member</h2>
+
+            {error && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm">
+                {error}
+              </div>
+            )}
+
+            <form onSubmit={handleEditUser} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Email</label>
+                <div className="px-4 py-2.5 bg-slate-100 border border-slate-200 rounded-xl text-slate-600 text-sm">
+                  {editingUser.email}
+                </div>
+              </div>
+
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Name</label>
                 <input
                   type="text"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  value={editForm.name}
+                  onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
                   required
                   className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
                 />
               </div>
 
-              {!editingUser && (
-                <>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Exotel Email</label>
-                    <input
-                      type="email"
-                      value={formData.email}
-                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                      required
-                      placeholder="name@exotel.com"
-                      className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Password</label>
-                    <input
-                      type="password"
-                      value={formData.password}
-                      onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                      required
-                      className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                    />
-                  </div>
-                </>
-              )}
-
-              {/* Role - Only primary admin can change */}
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Role</label>
                 {isPrimaryAdmin ? (
-                  <>
-                    {editingUser?.email === PRIMARY_ADMIN_EMAIL ? (
-                      <div className="px-4 py-2.5 bg-slate-100 border border-slate-200 rounded-xl text-slate-600">
-                        Admin (Primary - cannot change)
-                      </div>
-                    ) : (
-                      <select
-                        value={formData.role}
-                        onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                        className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                      >
-                        <option value="employee">Employee</option>
-                        <option value="admin">Admin</option>
-                      </select>
-                    )}
-                  </>
+                  editingUser.email === PRIMARY_ADMIN_EMAIL ? (
+                    <div className="px-4 py-2.5 bg-slate-100 border border-slate-200 rounded-xl text-slate-600">
+                      Admin (Primary - cannot change)
+                    </div>
+                  ) : (
+                    <select
+                      value={editForm.role}
+                      onChange={(e) => setEditForm({ ...editForm, role: e.target.value })}
+                      className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                    >
+                      <option value="employee">Employee</option>
+                      <option value="admin">Admin</option>
+                    </select>
+                  )
                 ) : (
                   <div className="px-4 py-2.5 bg-slate-100 border border-slate-200 rounded-xl text-slate-600">
-                    {editingUser ? (editingUser.role === 'admin' ? 'Admin' : 'Employee') : 'Employee'}
+                    {editingUser.role === 'admin' ? 'Admin' : 'Employee'}
                     <span className="text-xs text-slate-400 ml-2">(Only primary admin can change roles)</span>
                   </div>
                 )}
@@ -295,7 +426,7 @@ export default function Employees() {
               <div className="flex justify-end gap-3 pt-4">
                 <button
                   type="button"
-                  onClick={closeModal}
+                  onClick={closeEditModal}
                   className="px-4 py-2.5 text-slate-700 bg-slate-100 rounded-xl hover:bg-slate-200 transition-colors font-medium"
                 >
                   Cancel

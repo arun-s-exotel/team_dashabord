@@ -1,10 +1,8 @@
-const bcrypt = require('bcryptjs');
 const { PrismaClient } = require('@prisma/client');
 
 const prisma = new PrismaClient();
 
 const PRIMARY_ADMIN_EMAIL = 'arun.s@exotel.com';
-const MAX_USERS = 21;
 
 const getUsers = async (req, res) => {
   try {
@@ -17,43 +15,6 @@ const getUsers = async (req, res) => {
   } catch (error) {
     console.error('Get users error:', error);
     res.status(500).json({ error: 'Failed to fetch users' });
-  }
-};
-
-const createUser = async (req, res) => {
-  try {
-    const { email, password, name, role } = req.body;
-
-    if (!email || !password || !name) {
-      return res.status(400).json({ error: 'Email, password, and name are required' });
-    }
-
-    const userCount = await prisma.user.count({ where: { isActive: true } });
-    if (userCount >= MAX_USERS) {
-      return res.status(400).json({ error: 'Maximum user limit reached (22 users)' });
-    }
-
-    const existingUser = await prisma.user.findUnique({ where: { email } });
-    if (existingUser) {
-      return res.status(400).json({ error: 'Email already registered' });
-    }
-
-    const passwordHash = await bcrypt.hash(password, 10);
-
-    const user = await prisma.user.create({
-      data: {
-        email,
-        passwordHash,
-        name,
-        role: role || 'employee'
-      },
-      select: { id: true, email: true, name: true, role: true, createdAt: true }
-    });
-
-    res.status(201).json(user);
-  } catch (error) {
-    console.error('Create user error:', error);
-    res.status(500).json({ error: 'Failed to create user' });
   }
 };
 
@@ -115,4 +76,4 @@ const deleteUser = async (req, res) => {
   }
 };
 
-module.exports = { getUsers, createUser, updateUser, deleteUser };
+module.exports = { getUsers, updateUser, deleteUser };

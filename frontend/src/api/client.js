@@ -37,9 +37,15 @@ export const auth = {
 
 export const users = {
   getAll: () => client.get('/users'),
-  create: (data) => client.post('/users', data),
   update: (id, data) => client.put(`/users/${id}`, data),
   delete: (id) => client.delete(`/users/${id}`)
+};
+
+export const allowedEmails = {
+  getAll: () => client.get('/allowed-emails'),
+  add: (data) => client.post('/allowed-emails', data),
+  update: (id, data) => client.put(`/allowed-emails/${id}`, data),
+  remove: (id) => client.delete(`/allowed-emails/${id}`)
 };
 
 export const shifts = {

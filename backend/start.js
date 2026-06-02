@@ -1,20 +1,41 @@
-const { execSync } = require('child_process');
 const { PrismaClient } = require('@prisma/client');
 const bcrypt = require('bcryptjs');
 
+const LEGACY_WHITELIST = [
+  { email: 'arun.s@exotel.com', role: 'admin' },
+  { email: 'ashwin.ts@exotel.com', role: 'employee' },
+  { email: 'vemana.kiran@exotel.com', role: 'employee' },
+  { email: 'ruthwik.d@exotel.com', role: 'employee' },
+  { email: 'sneha.sb@exotel.com', role: 'employee' },
+  { email: 'akhil.a@exotel.com', role: 'employee' },
+  { email: 'shreya.singh@exotel.com', role: 'employee' },
+  { email: 'ashwini.v@exotel.com', role: 'employee' },
+  { email: 'pratnadeep.sinha@exotel.com', role: 'employee' },
+  { email: 'harsh.agrawal@exotel.com', role: 'employee' },
+  { email: 'mangala.rajeshwari@exotel.com', role: 'employee' },
+  { email: 'naveenkumar.k@exotel.com', role: 'employee' },
+  { email: 'rajnish.singh@exotel.com', role: 'employee' },
+  { email: 'diya.sarkar@exotel.com', role: 'employee' },
+  { email: 'bindu.bhavani@exotel.com', role: 'employee' },
+  { email: 'arun.naik@exotel.com', role: 'employee' },
+  { email: 'rohit.anand@exotel.com', role: 'employee' },
+  { email: 'ananya.ba@exotel.com', role: 'employee' },
+  { email: 'turaka.aruna@exotel.com', role: 'employee' },
+  { email: 'heena.k@exotel.com', role: 'employee' },
+  { email: 'manikandan.palanisamy@exotel.com', role: 'employee' }
+];
+
 async function seedIfNeeded() {
   const prisma = new PrismaClient();
-  
+
   try {
-    // Check if admin user exists
     const adminUser = await prisma.user.findUnique({
       where: { email: 'admin@example.com' }
     });
-    
+
     if (!adminUser) {
       console.log('Admin user not found, running seed...');
-      
-      // Create default shifts
+
       const shifts = [
         { name: 'Morning Shift', startTime: '08:00', endTime: '17:00' },
         { name: 'Day Shift', startTime: '10:00', endTime: '19:00' },
@@ -34,7 +55,6 @@ async function seedIfNeeded() {
       }
       console.log('Seeded default shifts');
 
-      // Create admin user
       const passwordHash = await bcrypt.hash('admin123', 10);
       await prisma.user.create({
         data: {
@@ -46,7 +66,28 @@ async function seedIfNeeded() {
       });
       console.log('Created default admin user (email: admin@example.com, password: admin123)');
     } else {
-      console.log('Admin user already exists, skipping seed');
+      console.log('Admin user already exists, skipping admin seed');
+    }
+
+    const allowedCount = await prisma.allowedEmail.count();
+    if (allowedCount === 0) {
+      console.log('Allowed-email whitelist is empty, backfilling...');
+
+      const existingUsers = await prisma.user.findMany({ select: { email: true, role: true } });
+      const merged = new Map();
+      for (const entry of LEGACY_WHITELIST) merged.set(entry.email, entry.role);
+      for (const u of existingUsers) {
+        if (!merged.has(u.email)) merged.set(u.email, u.role);
+      }
+
+      for (const [email, role] of merged) {
+        await prisma.allowedEmail.create({
+          data: { email, role, addedBy: 'system' }
+        });
+      }
+      console.log(`Backfilled ${merged.size} allowed emails`);
+    } else {
+      console.log(`Allowed-email whitelist already has ${allowedCount} entries, skipping backfill`);
     }
   } catch (error) {
     console.error('Seed error:', error.message);
