@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
 import { users, allowedEmails } from '../api/client';
 import { useAuth } from '../context/AuthContext';
+import { useFeedback } from '../context/FeedbackContext';
 
 const PRIMARY_ADMIN_EMAIL = 'arun.s@exotel.com';
 
 export default function Employees() {
   const { user: currentUser } = useAuth();
+  const { success, error: toastError, confirm } = useFeedback();
   const [allUsers, setAllUsers] = useState([]);
   const [whitelist, setWhitelist] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -69,12 +71,14 @@ export default function Employees() {
         setSaving(false);
         return;
       }
+      const email = addForm.email.toLowerCase().trim();
       await allowedEmails.add({
-        email: addForm.email.toLowerCase().trim(),
+        email,
         role: isPrimaryAdmin ? addForm.role : 'employee'
       });
       closeAddModal();
       loadAll();
+      success(`${email} added to the whitelist`);
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to add email');
     } finally {
@@ -92,6 +96,7 @@ export default function Employees() {
       await users.update(editingUser.id, updateData);
       closeEditModal();
       loadAll();
+      success(`Updated ${editingUser.name}`);
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to update member');
     } finally {
@@ -101,29 +106,41 @@ export default function Employees() {
 
   const handleRemoveUser = async (user) => {
     if (user.email === PRIMARY_ADMIN_EMAIL) {
-      alert('Cannot remove the primary admin');
+      toastError('Cannot remove the primary admin');
       return;
     }
-    if (!window.confirm(`Remove ${user.name} from the team? Their account will be deactivated.`)) return;
+    const ok = await confirm({
+      title: `Remove ${user.name}?`,
+      message: 'Their account will be deactivated. They will no longer be able to log in.',
+      confirmLabel: 'Remove',
+      tone: 'danger'
+    });
+    if (!ok) return;
     try {
       await users.delete(user.id);
       loadAll();
+      success(`${user.name} deactivated`);
     } catch (err) {
-      alert(err.response?.data?.error || 'Failed to remove member');
+      toastError(err.response?.data?.error || 'Failed to remove member');
     }
   };
 
   const handleRemoveWhitelist = async (entry) => {
-    if (entry.registered) {
-      if (!window.confirm(`${entry.email} has already registered. Removing them from the whitelist will not delete their account, but they will not be able to re-register if removed later. Continue?`)) return;
-    } else {
-      if (!window.confirm(`Remove pending invite for ${entry.email}?`)) return;
-    }
+    const ok = await confirm({
+      title: entry.registered ? `Remove ${entry.email} from whitelist?` : `Remove pending invite?`,
+      message: entry.registered
+        ? `${entry.email} has already registered. Their account stays active, but they won't be able to re-register if removed later.`
+        : `${entry.email} has not registered yet. They will lose access to register.`,
+      confirmLabel: 'Remove',
+      tone: 'danger'
+    });
+    if (!ok) return;
     try {
       await allowedEmails.remove(entry.id);
       loadAll();
+      success('Removed from whitelist');
     } catch (err) {
-      alert(err.response?.data?.error || 'Failed to remove from whitelist');
+      toastError(err.response?.data?.error || 'Failed to remove from whitelist');
     }
   };
 
@@ -131,8 +148,9 @@ export default function Employees() {
     try {
       await allowedEmails.update(entry.id, { role: newRole });
       loadAll();
+      success(`${entry.email} role set to ${newRole}`);
     } catch (err) {
-      alert(err.response?.data?.error || 'Failed to update role');
+      toastError(err.response?.data?.error || 'Failed to update role');
     }
   };
 

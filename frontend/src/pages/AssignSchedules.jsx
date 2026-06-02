@@ -1,8 +1,10 @@
 import { useState, useEffect, useMemo } from 'react';
 import { format, eachDayOfInterval, parseISO } from 'date-fns';
 import { users, shifts, schedules } from '../api/client';
+import { useFeedback } from '../context/FeedbackContext';
 
 export default function AssignSchedules() {
+  const { success, error: toastError } = useFeedback();
   const [allUsers, setAllUsers] = useState([]);
   const [allShifts, setAllShifts] = useState([]);
   const [selectedUsers, setSelectedUsers] = useState([]);
@@ -11,7 +13,6 @@ export default function AssignSchedules() {
   const [endDate, setEndDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState({ type: '', text: '' });
   const [currentSchedules, setCurrentSchedules] = useState([]);
   const [loadingSchedules, setLoadingSchedules] = useState(false);
   const [expandedView, setExpandedView] = useState(false);
@@ -105,20 +106,19 @@ export default function AssignSchedules() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setMessage({ type: '', text: '' });
 
     if (selectedUsers.length === 0) {
-      setMessage({ type: 'error', text: 'Please select at least one employee' });
+      toastError('Please select at least one employee');
       return;
     }
 
     if (!selectedShift) {
-      setMessage({ type: 'error', text: 'Please select a shift' });
+      toastError('Please select a shift');
       return;
     }
 
     if (new Date(startDate) > new Date(endDate)) {
-      setMessage({ type: 'error', text: 'Start date must be before end date' });
+      toastError('Start date must be before end date');
       return;
     }
 
@@ -131,12 +131,12 @@ export default function AssignSchedules() {
         startDate,
         endDate
       });
-      setMessage({ type: 'success', text: res.data.message });
+      success(res.data.message);
       setSelectedUsers([]);
       setSelectedShift('');
       await loadSchedules();
     } catch (err) {
-      setMessage({ type: 'error', text: err.response?.data?.error || 'Failed to assign schedules' });
+      toastError(err.response?.data?.error || 'Failed to assign schedules');
     } finally {
       setSaving(false);
     }
@@ -153,16 +153,6 @@ export default function AssignSchedules() {
   return (
     <div>
       <h1 className="text-2xl font-bold text-gray-900 mb-6">Assign Schedules</h1>
-
-      {message.text && (
-        <div className={`mb-6 p-4 rounded-lg ${
-          message.type === 'success' 
-            ? 'bg-green-50 border border-green-200 text-green-700'
-            : 'bg-red-50 border border-red-200 text-red-700'
-        }`}>
-          {message.text}
-        </div>
-      )}
 
       <form onSubmit={handleSubmit} className="space-y-6">
         <div className="bg-white rounded-lg shadow p-6">

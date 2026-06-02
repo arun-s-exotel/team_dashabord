@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
 import { shifts } from '../api/client';
+import { useFeedback } from '../context/FeedbackContext';
 
 export default function Shifts() {
+  const { success, error: toastError, confirm } = useFeedback();
   const [allShifts, setAllShifts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -48,8 +50,13 @@ export default function Shifts() {
     try {
       await shifts.update(shift.id, { isNightShift: !shift.isNightShift });
       loadShifts();
+      success(
+        shift.isNightShift
+          ? `"${shift.name}" no longer counts toward night-shift allowance`
+          : `"${shift.name}" now counts toward night-shift allowance`
+      );
     } catch (err) {
-      alert(err.response?.data?.error || 'Failed to update shift');
+      toastError(err.response?.data?.error || 'Failed to update shift');
     }
   };
 
@@ -61,8 +68,10 @@ export default function Shifts() {
     try {
       if (editingShift) {
         await shifts.update(editingShift.id, formData);
+        success(`Updated "${formData.name}"`);
       } else {
         await shifts.create(formData);
+        success(`Created "${formData.name}"`);
       }
       closeModal();
       loadShifts();
@@ -74,13 +83,19 @@ export default function Shifts() {
   };
 
   const handleDelete = async (shift) => {
-    if (!window.confirm(`Are you sure you want to delete "${shift.name}"?`)) return;
-
+    const ok = await confirm({
+      title: `Delete "${shift.name}"?`,
+      message: 'This will deactivate the shift. Existing assignments using it are kept, but no new ones can be created.',
+      confirmLabel: 'Delete',
+      tone: 'danger'
+    });
+    if (!ok) return;
     try {
       await shifts.delete(shift.id);
       loadShifts();
+      success(`"${shift.name}" deactivated`);
     } catch (err) {
-      alert(err.response?.data?.error || 'Failed to delete shift');
+      toastError(err.response?.data?.error || 'Failed to delete shift');
     }
   };
 

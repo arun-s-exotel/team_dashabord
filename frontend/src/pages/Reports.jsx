@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { format, subMonths } from 'date-fns';
 import { reports } from '../api/client';
 import { useAuth } from '../context/AuthContext';
+import { useFeedback } from '../context/FeedbackContext';
 
 function monthKey(d) {
   return format(d, 'yyyy-MM');
@@ -19,6 +20,7 @@ function monthOptions() {
 
 export default function Reports() {
   const { isEffectiveAdmin } = useAuth();
+  const { success, error: toastError } = useFeedback();
   const [month, setMonth] = useState(monthKey(new Date()));
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -52,8 +54,9 @@ export default function Reports() {
       a.click();
       a.remove();
       URL.revokeObjectURL(url);
+      success('CSV downloaded');
     } catch (err) {
-      alert('Failed to export CSV');
+      toastError('Failed to export CSV');
     }
   };
 
