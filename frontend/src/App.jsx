@@ -11,6 +11,7 @@ import Employees from './pages/Employees';
 import Shifts from './pages/Shifts';
 import AssignSchedules from './pages/AssignSchedules';
 import Reports from './pages/Reports';
+import Activity from './pages/Activity';
 
 function PrivateRoute({ children, adminOnly = false }) {
   const { user, loading, isAdmin } = useAuth();
@@ -73,7 +74,8 @@ export default function App() {
       <Route path="/employees" element={<PrivateRoute adminOnly><Employees /></PrivateRoute>} />
       <Route path="/shifts" element={<PrivateRoute adminOnly><Shifts /></PrivateRoute>} />
       <Route path="/assign" element={<PrivateRoute adminOnly><AssignSchedules /></PrivateRoute>} />
-      
+      <Route path="/activity" element={<PrivateRoute adminOnly><Activity /></PrivateRoute>} />
+
       <Route path="*" element={<Navigate to="/" />} />
     </Routes>
   );

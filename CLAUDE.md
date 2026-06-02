@@ -28,11 +28,17 @@ The Express server is the only deployed process. In production it serves both:
 1. `/api/*` — JSON API
 2. `/*` — static files from `frontend/dist/` (with SPA fallback to `index.html`)
 
-This means **the frontend must be built before the backend starts in production** (`Dockerfile` and `backend/package.json`'s `build` script handle this). Two boot paths exist and they are not interchangeable:
-- `backend/start.js` (used by Dockerfile via `node start.js`) — runs an idempotent inline seed for `admin@example.com` if missing, then requires `src/index.js`. Assumes schema is already pushed via `prisma db push`.
-- `npm start` directly (used by Railway via `Procfile`) — runs `prisma migrate deploy` first, then `node src/index.js`. **No auto-seed.** A manual `npm run db:seed` is required after first deploy.
+This means **the frontend must be built before the backend starts in production** (`Dockerfile` and `backend/package.json`'s `build` script handle this).
 
-There are no committed Prisma migrations in `backend/prisma/migrations/`, so `migrate deploy` will be a no-op on a fresh DB — schema currently relies on `db push`. If you add a migration, generate it locally with `db:migrate` and commit the `migrations/` folder.
+**Boot sequence** (both Dockerfile and Procfile now go through the same path):
+1. `backend/scripts/migrate.js` — inspects the DB state and does one of:
+   - Fresh DB → `prisma migrate deploy` from scratch
+   - Existing tables but no `_prisma_migrations` table (i.e. created previously via `db push`) → baseline by `prisma migrate resolve --applied 20260602120000_init`, then `prisma migrate deploy`
+   - Already migrated → just `prisma migrate deploy`
+2. `backend/start.js` — idempotent in-process seed (creates `admin@example.com / admin123` if no admin user exists, seeds default shifts, and backfills the `allowed_emails` whitelist on first boot from the legacy hardcoded list).
+3. `require('./src/index.js')` — boots Express.
+
+The init migration `prisma/migrations/20260602120000_init/migration.sql` captures the schema as of the cascade-restrict + audit-log change. Future schema edits should go through `npx prisma migrate dev --name <name>` locally, commit the generated migration directory, and Railway will pick it up via `migrate deploy`. **Do not use `prisma db push` for schema changes** — it bypasses the migration history and the bootstrap script would then treat the DB as un-migrated.
 
 ### Auth and authorization
 JWT (7-day expiry) issued on login/register, sent as `Authorization: Bearer <token>`. The `authenticate` middleware in `backend/src/middleware/auth.js` loads the user fresh from the DB on every request and rejects inactive users. `requireAdmin` gates admin-only routes.

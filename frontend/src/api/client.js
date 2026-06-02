@@ -73,4 +73,9 @@ export const reports = {
   exportCSV: (params) => client.get('/reports/export', { params, responseType: 'blob' })
 };
 
+export const auditLogs = {
+  list: (params) => client.get('/audit-logs', { params }),
+  actions: () => client.get('/audit-logs/actions')
+};
+
 export default client;

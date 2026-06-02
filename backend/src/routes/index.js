@@ -3,6 +3,7 @@ const { authenticate, requireAdmin } = require('../middleware/auth');
 const authController = require('../controllers/authController');
 const userController = require('../controllers/userController');
 const allowedEmailController = require('../controllers/allowedEmailController');
+const auditLogController = require('../controllers/auditLogController');
 const shiftController = require('../controllers/shiftController');
 const scheduleController = require('../controllers/scheduleController');
 const workStatusController = require('../controllers/workStatusController');
@@ -46,5 +47,9 @@ router.delete('/work-status/:date', authenticate, workStatusController.deleteWor
 // Report routes
 router.get('/reports/summary', authenticate, reportController.getSummary);
 router.get('/reports/export', authenticate, requireAdmin, reportController.exportCSV);
+
+// Audit log routes (admin only)
+router.get('/audit-logs', authenticate, requireAdmin, auditLogController.listAuditLogs);
+router.get('/audit-logs/actions', authenticate, requireAdmin, auditLogController.listDistinctActions);
 
 module.exports = router;

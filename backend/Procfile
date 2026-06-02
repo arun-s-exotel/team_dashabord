@@ -1,1 +1,1 @@
-web: npm run db:migrate:deploy && npm run start
+web: node scripts/migrate.js && npm run start
