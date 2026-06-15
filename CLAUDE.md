@@ -61,10 +61,15 @@ User deletion is soft — `isActive = false`. `getUsers` filters out inactive us
 
 `bulkAssignSchedules` is **upsert-in-transaction**, not delete+insert. There's a hard cap (`MAX_OPS = 1000`) on `users × days` per call to prevent runaway writes.
 
+### API surface
+All routes are wired in a single file: `backend/src/routes/index.js`, mounted at `/api`. There are no per-resource route modules — adding a new endpoint means adding one line there plus a controller method. The night-shift allowance report lives at `GET /api/reports/night-shift` (JSON) and `GET /api/reports/night-shift/export` (CSV, admin-only).
+
 ### Frontend structure
 - `src/api/client.js` — single axios instance; baseURL is `VITE_API_URL` or `/api`. A 401 interceptor clears `localStorage` and hard-redirects to `/login`.
 - `src/context/AuthContext.jsx` — persists `token`, `user`, and `viewAsRole` in `localStorage`. Exposes `useAuth()` with `{ user, loading, login, register, logout, isAdmin, effectiveRole, isEffectiveAdmin, isImpersonating, setViewAsRole }`. **Use `isEffectiveAdmin` for gating UI**, not `isAdmin`, so the View-as-Employee toggle works.
-- `src/App.jsx` — all routing. `PrivateRoute adminOnly` gates admin pages. Admin pages: `/employees`, `/shifts`, `/assign`, `/activity`.
+- `src/App.jsx` — all routing. `PrivateRoute adminOnly` gates admin pages.
+  - Everyone: `/` (Dashboard), `/calendar`, `/list`, `/reports` (night-shift allowance UI — the app's end goal).
+  - Admin only: `/employees`, `/shifts`, `/assign`, `/activity`.
 - View-as-Employee toggle (top bar + impersonation banner) — purely a UI switch. Backend permissions are unchanged; if an admin really wants to take an admin action, they switch back. Backend routes still check the actual JWT role.
 
 ### Data-safety guardrails (read before editing)
@@ -76,3 +81,4 @@ User deletion is soft — `isActive = false`. `getUsers` filters out inactive us
 - Prisma uses camelCase model fields mapped to snake_case columns via `@map(...)`. Stick to camelCase in JS.
 - All `date` columns are `@db.Date` (no time). Controllers construct `new Date(dateString)` — be careful about timezone drift when adding date logic.
 - Controllers each instantiate their own `PrismaClient`. Don't introduce a global one without auditing connection pooling.
+- `README.md` is partially stale — it still describes work-status / leave management, a 22-user limit, and generic reports/CSV endpoints that were removed in the refocus to shift assignment + night-shift allowance (commit `5f164bf`). Trust this file over `README.md` when they disagree.

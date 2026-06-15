@@ -80,7 +80,7 @@ const icons = {
   ),
 };
 
-const fullWidthRoutes = ['/calendar', '/list', '/reports'];
+const fullWidthRoutes = ['/reports'];
 
 export default function Layout({ children }) {
   const { user, logout, isAdmin, isEffectiveAdmin, isImpersonating, setViewAsRole } = useAuth();
@@ -116,8 +116,6 @@ export default function Layout({ children }) {
 
   const navItems = [
     { path: '/', label: 'Dashboard', icon: 'home', roles: ['admin', 'employee'] },
-    { path: '/calendar', label: 'Calendar', icon: 'calendar', roles: ['admin', 'employee'] },
-    { path: '/list', label: 'List View', icon: 'list', roles: ['admin', 'employee'] },
     { path: '/reports', label: 'Night Shift Report', icon: 'reports', roles: ['admin', 'employee'] },
     { path: '/employees', label: 'Team', icon: 'users', roles: ['admin'] },
     { path: '/shifts', label: 'Shifts', icon: 'shifts', roles: ['admin'] },
@@ -127,8 +125,8 @@ export default function Layout({ children }) {
 
   const effectiveRole = isEffectiveAdmin ? 'admin' : 'employee';
   const filteredNav = navItems.filter(item => item.roles.includes(effectiveRole));
-  const mainNav = filteredNav.slice(0, 4);
-  const adminNav = filteredNav.slice(4);
+  const mainNav = filteredNav.filter(item => ['/', '/reports'].includes(item.path));
+  const adminNav = filteredNav.filter(item => !['/', '/reports'].includes(item.path));
 
   const NavLink = ({ item, mobile = false }) => {
     const isActive = location.pathname === item.path;
