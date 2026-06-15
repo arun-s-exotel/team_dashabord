@@ -1,0 +1,1 @@
+export const NIGHT_SHIFT_ALLOWANCE = 500;

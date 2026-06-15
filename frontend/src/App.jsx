@@ -4,8 +4,6 @@ import Layout from './components/Layout';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
-import Calendar from './pages/Calendar';
-import ListView from './pages/ListView';
 import Employees from './pages/Employees';
 import Shifts from './pages/Shifts';
 import AssignSchedules from './pages/AssignSchedules';
@@ -49,8 +47,6 @@ export default function App() {
       <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
 
       <Route path="/" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
-      <Route path="/calendar" element={<PrivateRoute><Calendar /></PrivateRoute>} />
-      <Route path="/list" element={<PrivateRoute><ListView /></PrivateRoute>} />
       <Route path="/reports" element={<PrivateRoute><Reports /></PrivateRoute>} />
 
       <Route path="/employees" element={<PrivateRoute adminOnly><Employees /></PrivateRoute>} />
