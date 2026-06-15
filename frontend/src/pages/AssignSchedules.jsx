@@ -68,6 +68,23 @@ export default function AssignSchedules() {
   const isMultiDay = dateRange.length > 1;
   const datesToShow = expandedView ? dateRange : dateRange.slice(0, 1);
 
+  const rangeSummary = useMemo(() => {
+    if (dateRange.length === 0) return null;
+    const totalDays = dateRange.length;
+    const businessDays = dateRange.filter(d => {
+      const dow = d.getDay();
+      return dow !== 0 && dow !== 6;
+    }).length;
+    const fullWeeks = Math.floor(totalDays / 7);
+    const extraDays = totalDays % 7;
+    const weeksLabel = fullWeeks === 0
+      ? `${extraDays} day${extraDays === 1 ? '' : 's'}`
+      : extraDays === 0
+        ? `${fullWeeks} week${fullWeeks === 1 ? '' : 's'}`
+        : `${fullWeeks}w ${extraDays}d`;
+    return { totalDays, businessDays, weeksLabel };
+  }, [dateRange]);
+
   const groupByShiftForDate = (date) => {
     const dateKey = format(date, 'yyyy-MM-dd');
     const daySchedules = currentSchedules.filter(s => s.date.slice(0, 10) === dateKey);
@@ -262,6 +279,14 @@ export default function AssignSchedules() {
               />
             </div>
           </div>
+
+          {rangeSummary && (
+            <div className="mt-4 flex flex-wrap gap-2">
+              <RangePill label="Total" value={`${rangeSummary.totalDays} day${rangeSummary.totalDays === 1 ? '' : 's'}`} />
+              <RangePill label="Business days" value={`${rangeSummary.businessDays} weekday${rangeSummary.businessDays === 1 ? '' : 's'}`} />
+              <RangePill label="Span" value={rangeSummary.weeksLabel} />
+            </div>
+          )}
         </div>
 
         <div className="bg-white rounded-lg shadow p-6">
@@ -351,6 +376,15 @@ export default function AssignSchedules() {
           </button>
         </div>
       </form>
+    </div>
+  );
+}
+
+function RangePill({ label, value }) {
+  return (
+    <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100 border border-slate-200">
+      <span className="text-xs text-slate-500">{label}</span>
+      <span className="text-xs font-semibold text-slate-900">{value}</span>
     </div>
   );
 }
